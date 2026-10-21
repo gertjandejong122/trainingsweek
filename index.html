@@ -1,0 +1,1351 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trainingsweek · Op weg naar Berlijn</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --text:#e8eaf0; --muted:#9aa1b2;
+  --run:#ff7a59; --bike:#4ea8ff; --strength:#b388ff; --mobility:#3ccfb4; --race:#f5c542;
+  --ok:#3ccf7a; --warn:#f5b942; --bad:#ff5d6c; --accent:#4ea8ff;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f4f5f8; --panel:#fff; --panel2:#f0f2f6; --line:#e1e4ea; --text:#1b1f27; --muted:#646c7c; --accent:#2b7fd9; --race:#d9a414; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:22px 24px 8px;max-width:1500px;margin:0 auto}
+h1{font-size:22px;margin:0}
+.sub{color:var(--muted);font-size:13px}
+.nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);margin-right:4px}
+.badge.phase{color:var(--p);border-color:var(--p)}
+.badge.deload{color:var(--mobility);border-color:var(--mobility)}
+.meta-line{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px}
+main{max-width:1500px;margin:0 auto;padding:8px 24px 48px}
+.season{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0 12px}
+.season-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:10px}
+.season-top b{font-size:14px}
+.tl{display:flex;gap:2px;align-items:flex-end}
+.tw{flex:1;min-width:4px;display:flex;flex-direction:column;align-items:stretch;cursor:pointer;position:relative}
+.tw .f{height:16px;font-size:11px;text-align:center;line-height:16px}
+.tw .b{height:14px;background:var(--p);border-radius:3px;opacity:.55}
+.tw.dl .b{opacity:.28}
+.tw.past .b{opacity:.85}
+.tw.now .b{outline:2px solid var(--text);outline-offset:1px;opacity:1}
+.tw.sel .b{opacity:1;box-shadow:0 0 0 2px var(--accent)}
+.tw .m{height:15px;font-size:10px;color:var(--muted);white-space:nowrap;overflow:visible}
+.tw:hover .b{opacity:1}
+.tl-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:4px}
+.tl-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.phase-desc{font-size:13px;color:var(--muted);margin:0 0 14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:0 0 18px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat .v{font-size:22px;font-weight:650}
+.stat .v small{font-size:13px;color:var(--muted);font-weight:400}
+.stat .l{color:var(--muted);font-size:12px}
+.bar{height:6px;background:var(--panel2);border-radius:99px;margin-top:8px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+@media (max-width:1100px){.week{grid-template-columns:1fr}}
+.day{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:190px}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline}
+.dayhead b{font-size:14px}
+.dayhead span{color:var(--muted);font-size:12px}
+.today .dayhead span{color:var(--accent);font-weight:600}
+.rest{color:var(--muted);font-size:12.5px;font-style:italic;padding:4px 2px}
+.card{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:9px;padding:8px 10px;cursor:pointer;transition:transform .08s,border-color .08s}
+.card:hover{transform:translateY(-1px);border-color:var(--c)}
+.card.race{background:color-mix(in srgb,var(--race) 14%,var(--panel2));border-color:var(--race)}
+.card .t{font-weight:600;font-size:13.5px;display:flex;justify-content:space-between;gap:6px}
+.card .s{color:var(--muted);font-size:12.5px;margin-top:2px}
+.card .meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.card.isdone,.card.ispartial{background:color-mix(in srgb,var(--ok) 7%,var(--panel2))}
+.card.isskipped{opacity:.6}
+.card.isskipped .t span:first-child{text-decoration:line-through}
+.chip{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.chip.done{color:var(--ok);border-color:var(--ok)}
+.chip.partial{color:var(--warn);border-color:var(--warn)}
+.chip.skipped{color:var(--bad);border-color:var(--bad)}
+.dur{font-size:11.5px;color:var(--muted);font-weight:400;white-space:nowrap}
+.note{font-size:12px;color:var(--muted);font-style:italic;margin-top:5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:14px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+section{margin-top:26px}
+section h2{font-size:16px;margin:0 0 10px}
+.uplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px}
+.upitem{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:9px;padding:8px 12px;cursor:pointer}
+.upitem:hover{border-color:var(--c)}
+.upitem small{color:var(--muted);display:block}
+.empty{color:var(--muted);font-size:13px}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.zones table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.zones th,.zones td{text-align:left;padding:6px 12px;border-bottom:1px solid var(--line)}
+.zones th{color:var(--muted);font-weight:500;font-size:12px}
+.zones tr:last-child td{border-bottom:0}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);padding:0;width:min(700px,95vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.dlg{padding:20px 22px}
+.dlg h3{margin:2px 0 2px;font-size:19px}
+.dlg ul{padding-left:18px;margin:10px 0}
+.dlg li{margin:4px 0}
+.form{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;display:grid;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>label{flex:1;min-width:120px}
+label,.lbl{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+input,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+input[type=range]{padding:0;accent-color:var(--accent)}
+input[type=radio]{accent-color:var(--accent)}
+textarea{min-height:80px;resize:vertical}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg.feel button{font-size:20px;padding:3px 10px}
+.actions{display:flex;justify-content:space-between;gap:8px}
+.hint{font-size:12px;color:var(--muted)}
+.races{display:grid;gap:6px}
+.race-row{display:grid;grid-template-columns:2fr 1.3fr .7fr 1fr auto auto;gap:6px;align-items:center}
+.race-row input{padding:5px 7px;font-size:13px;min-width:0}
+.race-row label{flex-direction:row;align-items:center;gap:4px;white-space:nowrap}
+.race-head{font-size:11px;color:var(--muted)}
+.store{font-size:12.5px;color:var(--muted)}
+.store.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.store.warn{color:var(--warn);border-color:var(--warn)}
+.storebox a{color:var(--accent)}
+.storebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px;font-size:13px}
+@media (max-width:600px){.race-row{grid-template-columns:1fr 1fr}}
+.movesel{font:inherit;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.tabs{display:flex;gap:4px;margin-bottom:10px}
+.tabs button{border-radius:999px;padding:5px 14px;font-size:13.5px}
+.tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.filters{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 14px}
+.lift-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.lcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
+.lcard h3{margin:0;font-size:15px}
+.lcard .unit{color:var(--muted);font-size:12px;font-weight:400}
+.lnums{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin:6px 0 4px}
+.lnums .big{font-size:20px;font-weight:650}
+.lnums .lab{color:var(--muted);font-size:11.5px}
+.delta{font-size:12.5px;font-weight:600}
+.delta.up{color:var(--ok)} .delta.down{color:var(--bad)} .delta.flat{color:var(--muted)}
+.chart{width:100%;height:auto;display:block;margin-top:4px;outline:none;touch-action:pan-y}
+.chart text{font-size:10.5px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .ln{fill:none;stroke:var(--strength);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .area{fill:var(--strength);opacity:.1}
+.chart .dot{fill:var(--strength);stroke:var(--panel);stroke-width:2}
+.chart .xh{stroke:var(--muted);stroke-width:1;opacity:0}
+.chart .end{fill:var(--text);font-size:11px;font-weight:600}
+.chart:focus-visible{box-shadow:0 0 0 2px var(--accent);border-radius:6px}
+.tip{position:absolute;pointer-events:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;transition:opacity .08s;white-space:nowrap;z-index:2}
+.tip b{display:block;font-size:13.5px}
+.tip span{color:var(--muted)}
+.lempty{color:var(--muted);font-size:13px;padding:22px 0;text-align:center}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.hist{width:100%;border-collapse:collapse;font-size:13px}
+.hist th,.hist td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.hist th{color:var(--muted);font-weight:500;font-size:12px}
+.hist td{font-variant-numeric:tabular-nums}
+.hist tbody tr{cursor:pointer}
+.hist tbody tr:hover{background:var(--panel2)}
+.hist tr:last-child td{border-bottom:0}
+.hist td.n{white-space:normal;color:var(--muted);max-width:260px}
+.lx{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px}
+.lx-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.lx-h .hint button{font-size:11.5px;padding:2px 8px;margin-left:6px}
+.sets{display:flex;flex-wrap:wrap;gap:8px}
+.set{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.set input{width:62px;padding:5px 6px}
+.ex-row{display:grid;grid-template-columns:2fr 1.2fr auto auto;gap:6px;align-items:center}
+.ex-row input,.ex-row select{font:inherit;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 7px;min-width:0}
+.ex-row label{flex-direction:row;align-items:center;gap:4px;white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <nav class="tabs" id="tabs"><button type="button" data-tab="week">📅 Weekschema</button><button type="button" data-tab="kracht">🏋️ Kracht</button></nav>
+    <h1 id="wk"></h1>
+    <div class="meta-line" id="badges"></div>
+  </div>
+  <div class="nav">
+    <span class="nav" id="weekNav">
+      <button id="prev">‹ Vorige</button>
+      <button id="now">Deze week</button>
+      <button id="next">Volgende ›</button>
+    </span>
+    <span class="nav" id="liftNav" hidden>
+      <button id="liftExBtn">Oefeningen beheren</button>
+      <button id="liftAdd" class="primary">+ Krachtsessie loggen</button>
+    </span>
+    <button id="openSet">⚙ Instellingen</button>
+    <button id="storage" class="store"></button>
+  </div>
+</header>
+<main id="liftView" hidden>
+  <div class="filters">
+    <div class="lbl">Meten<div class="seg" id="liftMetric">
+      <button type="button" data-v="top">Zwaarste set</button>
+      <button type="button" data-v="e1rm">Geschat 1RM</button>
+      <button type="button" data-v="vol">Volume</button>
+    </div></div>
+    <div class="lbl">Periode<div class="seg" id="liftRange">
+      <button type="button" data-v="90">3 maanden</button>
+      <button type="button" data-v="180">6 maanden</button>
+      <button type="button" data-v="0">Alles</button>
+    </div></div>
+  </div>
+  <div class="stats" id="liftStats"></div>
+  <div class="lift-grid" id="liftGrid"></div>
+  <section>
+    <h2>Sessies</h2>
+    <div class="hint" style="margin:-4px 0 8px">Klik op een sessie om hem aan te passen. 🏆 = persoonlijk record.</div>
+    <div class="tablewrap"><table class="hist" id="liftTable"></table></div>
+  </section>
+</main>
+<main id="weekView">
+  <div class="season" id="season"></div>
+  <p class="phase-desc" id="phaseDesc"></p>
+  <div class="stats" id="stats"></div>
+  <div class="week" id="week"></div>
+  <div class="legend">
+    <span><i style="background:var(--run)"></i>Hardlopen</span>
+    <span><i style="background:var(--bike)"></i>Fietsen</span>
+    <span><i style="background:var(--strength)"></i>Kracht</span>
+    <span><i style="background:var(--mobility)"></i>Mobiliteit</span>
+    <span><i style="background:var(--race)"></i>Wedstrijd</span>
+    <span>Klik op een training voor details en feedback.</span>
+  </div>
+  <section>
+    <h2 id="upTitle"></h2>
+    <div class="uplist" id="up"></div>
+  </section>
+  <section>
+    <h2>Zones</h2>
+    <div class="zones" id="zones"></div>
+  </section>
+</main>
+
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<dialog id="liftDlg"><div class="dlg" id="liftBody"></div></dialog>
+<dialog id="exDlg"><div class="dlg">
+  <h3>Oefeningen beheren</h3>
+  <div class="hint" style="margin:4px 0 12px">Kies "kg" voor oefeningen met gewicht (kg per dumbbell) en "herhalingen" voor oefeningen met je lichaamsgewicht, zoals pull-ups en dips. Extra gewicht kun je daar optioneel invullen. Uitgeschakelde oefeningen verdwijnen uit het formulier, maar hun historie blijft bewaard.</div>
+  <div class="races" id="exRows"></div>
+  <div style="margin-top:8px"><button type="button" id="exAdd">+ Oefening</button></div>
+  <div class="actions" style="margin-top:16px"><span></span><div><button type="button" id="exClose">Sluiten</button> <button type="button" class="primary" id="exSave">Opslaan</button></div></div>
+</div></dialog>
+
+<dialog id="setDlg"><div class="dlg">
+  <h3>Instellingen</h3>
+  <div class="form" style="border:0;margin:0">
+    <div class="row">
+      <label>FTP (W)<input type="number" id="sFtp" min="100" max="500" placeholder="bv. 280"></label>
+      <label>Gem. fietssnelheid (km/u)<input type="number" id="sSpeed" min="15" max="45" step="0.5" placeholder="30"></label>
+      <label>Start trainingsblok (maandag)<input type="date" id="sStart"></label>
+    </div>
+    <div class="row">
+      <label>Start drempelfase<input type="date" id="sDrempel"></label>
+      <label>Start snelheidsfase<input type="date" id="sSnelheid"></label>
+    </div>
+    <div class="hint">Het marathonblok start automatisch 16 weken voor je hoofddoel. De laatste 2 weken zijn taper. Tot het marathonblok loopt het schema in blokken van 4 weken (3 opbouw + 1 herstel).</div>
+    <div class="lbl">Wedstrijden <span class="hint">De data zijn schattingen, controleer ze op de sites van de organisaties.</span></div>
+    <div class="races">
+      <div class="race-row race-head"><span>Naam</span><span>Datum</span><span>km</span><span>Doel</span><span>Hoofd</span><span></span></div>
+      <div id="sRaces" class="races"></div>
+    </div>
+    <div><button type="button" id="sAddRace">+ Wedstrijd</button></div>
+    <div class="row">
+      <button type="button" id="sExport">Exporteren (JSON)</button>
+      <button type="button" id="sImportBtn">Importeren</button>
+      <input type="file" id="sImport" accept="application/json" hidden>
+      <button type="button" id="sReset">Alle logs wissen</button>
+    </div>
+    <div class="lbl">Opslag (GitHub Gist)</div>
+    <div class="storebox">
+      <div id="sStoreStatus"></div>
+      <div class="row" id="sGistConnect">
+        <label style="flex:3">GitHub-token (alleen scope "gist")<input type="password" id="sToken" placeholder="ghp_… of github_pat_…" autocomplete="off"></label>
+        <button type="button" id="sGistOn" style="align-self:flex-end">Koppelen</button>
+      </div>
+      <div class="row" id="sGistConnected">
+        <button type="button" id="sGistSync">Nu synchroniseren</button>
+        <button type="button" id="sGistOff">Ontkoppelen</button>
+      </div>
+      <div class="hint">Je data staat in een geheime Gist (<code>trainingsdata.json</code>) op je GitHub-account. Op een andere laptop of telefoon vul je hetzelfde token in, dan wordt de Gist automatisch gevonden. Het token wordt alleen in deze browser bewaard, niet in de Gist. Wijzigingen van beide kanten worden per training samengevoegd.</div>
+      <div class="hint" id="sVersion"></div>
+    </div>
+    <div class="actions"><span></span><div><button type="button" id="sClose">Sluiten</button> <button type="button" class="primary" id="sSave">Opslaan</button></div></div>
+  </div>
+</div></dialog>
+
+<script>
+const LS_LOGS = 'tw_logs', LS_SET = 'tw_settings', LS_LIFTS = 'tw_lifts', LS_MOVES = 'tw_moves';
+const SPORT = {
+  run: { c: 'var(--run)', l: 'Hardlopen' },
+  bike: { c: 'var(--bike)', l: 'Fietsen' },
+  strength: { c: 'var(--strength)', l: 'Kracht' },
+  mobility: { c: 'var(--mobility)', l: 'Mobiliteit' }
+};
+const PHASE = {
+  basis: { l: 'Basis', c: '#4ea8ff', d: 'Aerobe basis: veel Z2 op de fiets, kracht 2× per week en de lange duurloop stap voor stap langer.' },
+  drempel: { l: 'Drempel', c: '#f5b942', d: 'Drempeltempo en halvemarathontempo, toewerkend naar de halve marathon in maart.' },
+  snelheid: { l: 'Snelheid', c: '#ff7a59', d: 'VO2max en snelheid voor de 10 km. Hoe sneller je bent, hoe makkelijker het marathontempo straks voelt.' },
+  marathon: { l: 'Marathonblok', c: '#b388ff', d: 'Volume en marathontempo. Fietsen alleen nog in Z2, kracht 1× per week als onderhoud.' },
+  taper: { l: 'Taper', c: '#3ccfb4', d: 'Volume omlaag, intensiteit kort en scherp. Vertrouw op het werk dat je hebt gedaan.' },
+  race: { l: 'Raceweek', c: '#f5c542', d: 'Fris aan de start. Slaap, koolhydraten, niks nieuws proberen.' },
+  herstel: { l: 'Herstel', c: '#9aa1b2', d: 'Na de marathon: 2–3 weken alleen rustig bewegen.' }
+};
+const DAYS = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+const FEEL = ['', '😫', '😕', '😐', '🙂', '😄'];
+const STATUS = { done: '✓ gedaan', partial: '◐ deels', skipped: '✕ overgeslagen' };
+const DEFAULT_RACES = [
+  { id: 'zvh', name: 'Zevenheuvelenloop', date: '2026-11-15', km: 15, target: '~56:00' },
+  { id: 'hm1', name: 'Halve marathon (bv. CPC Den Haag)', date: '2027-03-14', km: 21.1, target: '< 1:22' },
+  { id: 'k10', name: '10 km PR-poging', date: '2027-05-16', km: 10, target: '< 36:30' },
+  { id: 'hm2', name: 'Halve marathon (generale repetitie)', date: '2027-08-15', km: 21.1, target: '< 1:21' },
+  { id: 'ber', name: 'Berlijn Marathon', date: '2027-09-26', km: 42.2, target: '2:50–2:55', main: true }
+];
+
+const DEFAULT_EXERCISES = [
+  { id: 'sp', name: 'Shoulder press', type: 'kg', active: true },
+  { id: 'bp', name: 'Bench press', type: 'kg', active: true },
+  { id: 'lr', name: 'Lateral raise', type: 'kg', active: true },
+  { id: 'pu', name: 'Pull-ups', type: 'reps', active: true },
+  { id: 'dip', name: 'Tricep dips', type: 'reps', active: true },
+  { id: 'bss', name: 'Bulgarian split squat', type: 'kg', active: true },
+  { id: 'rdl', name: 'Romanian deadlift', type: 'kg', active: true },
+  { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true }
+];
+const EXERCISES_VERSION = 2;
+// Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
+function migrateSettings() {
+  if (!settings.exercises) { settings.exercises = DEFAULT_EXERCISES; settings.exV = EXERCISES_VERSION; return }
+  if ((settings.exV || 1) >= EXERCISES_VERSION) return;
+  const have = new Set(settings.exercises.map(e => e.id));
+  const newInV2 = ['bss', 'rdl', 'calf']; // eerder verwijderde oefeningen niet terugzetten
+  settings.exercises = [...settings.exercises, ...DEFAULT_EXERCISES.filter(e => newInV2.includes(e.id) && !have.has(e.id))];
+  settings.exV = EXERCISES_VERSION;
+  settings.savedAt = new Date().toISOString();
+}
+
+// Looptempo's op basis van 4 mijl in 22:50 (VDOT ≈ 57), M-tempo iets conservatiever
+const P = { easy: '4:35–5:05/km', rec: '5:00–5:20/km', m: '4:05–4:15/km', hm: '3:50–3:55/km', t: '3:42–3:48/km', i: '3:24–3:30/km', r: '3:15/km (78 s per 400 m)', strides: '~3:10/km' };
+const PACE = { I: ['I-tempo', P.i], T: ['T-tempo', P.t], R: ['R-tempo', P.r], M: ['M-tempo', P.m] };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
+
+function monday(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x }
+function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }
+function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
+function weeksBetween(a, b) { return Math.round((b - a) / (7 * 864e5)) }
+function weekday(s) { return (parseYmd(s).getDay() + 6) % 7 }
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+}
+function fmtMin(m) { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') }
+const runDur = km => Math.round(km * 4.8);
+const COMMUTE_KM = 40;
+const bikeSpeed = () => +settings.bikeSpeed || 30;
+const rideDur = km => Math.round(km / bikeSpeed() * 60);
+const rideKm = min => Math.round(min / 60 * bikeSpeed());
+
+let logs = load(LS_LOGS, {});
+let lifts = load(LS_LIFTS, {});
+let moves = load(LS_MOVES, {}); // 'oorspronkelijkeDatum|sessieId' → { to, saved }
+let settings = load(LS_SET, {});
+if (!settings.blockStart) settings.blockStart = ymd(monday(new Date()));
+if (!settings.races) settings.races = DEFAULT_RACES;
+if (!settings.drempelStart) settings.drempelStart = '2027-02-15';
+if (!settings.snelheidStart) settings.snelheidStart = '2027-03-15';
+migrateSettings();
+saveLocal();
+let viewMon = monday(new Date());
+let cur = null;
+
+function saveLocal() { localStorage.setItem(LS_LOGS, JSON.stringify(logs)); localStorage.setItem(LS_LIFTS, JSON.stringify(lifts)); localStorage.setItem(LS_MOVES, JSON.stringify(moves)); localStorage.setItem(LS_SET, JSON.stringify(settings)) }
+function persist() { saveLocal(); clearTimeout(pushTimer); pushTimer = setTimeout(syncGist, 800) }
+// Verwijderde logs blijven als tombstone bestaan, zodat het samenvoegen tussen laptops ze niet terugzet
+const getLog = k => { const l = logs[k]; return l && !l.deleted ? l : null };
+const tombstone = k => { logs[k] = { deleted: true, saved: new Date().toISOString() } };
+
+// ---- Opslag in een geheime GitHub Gist ----
+const LS_GIST = 'tw_gist', GIST_FILE = 'trainingsdata.json', GIST_DESC = 'Trainingsweek · trainingsdata';
+let gist = load(LS_GIST, {}); // { token, id, url }: alleen in deze browser, nooit in de Gist zelf
+let syncState = gist.id ? 'idle' : 'none', syncError = '', lastSync = null, pushTimer = null, busy = Promise.resolve();
+
+async function gh(path, opts = {}) {
+  const r = await fetch('https://api.github.com' + path, {
+    ...opts, cache: 'no-store',
+    headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + gist.token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) }
+  });
+  if (!r.ok) throw new Error(r.status === 401 ? 'token ongeldig of verlopen' : r.status === 403 || r.status === 404 ? 'geen toegang: heeft het token de scope "gist"?' : `GitHub gaf status ${r.status}`);
+  return r.json();
+}
+// Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
+const APP_VERSION = '2026-10-21';
+const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
+let remoteExtra = {}, remoteVersion = '';
+// Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
+const gistBody = () => JSON.stringify({ ...remoteExtra, app: 'trainingsweek', version: 1,
+  appVersion: remoteVersion > APP_VERSION ? remoteVersion : APP_VERSION, settings, logs, lifts, moves }, null, 2);
+async function readGist() {
+  const f = (await gh('/gists/' + gist.id)).files[GIST_FILE];
+  if (!f) return null;
+  const txt = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+  return txt && txt.trim() ? JSON.parse(txt) : null;
+}
+// Heeft deze browser iets dat nog niet in de Gist staat?
+function localAhead(remote) {
+  if (!remote) return true;
+  const ahead = (mine, theirs = {}) => Object.entries(mine).some(([k, v]) => !theirs[k] || (v.saved || '') > (theirs[k].saved || ''));
+  if (ahead(logs, remote.logs) || ahead(lifts, remote.lifts) || ahead(moves, remote.moves)) return true;
+  return (settings.savedAt || '') > ((remote.settings || {}).savedAt || '');
+}
+// Ophalen, samenvoegen en zo nodig terugschrijven. Acties lopen na elkaar zodat ze elkaar niet kruisen.
+function syncGist() {
+  if (!gist.id) return Promise.resolve();
+  const run = async () => {
+    syncState = 'syncing'; renderStorage();
+    try {
+      const before = JSON.stringify({ settings, logs, lifts, moves });
+      const remote = await readGist();
+      if (remote) {
+        remoteExtra = Object.fromEntries(Object.entries(remote).filter(([k]) => !KNOWN_KEYS.includes(k)));
+        remoteVersion = remote.appVersion || '';
+        mergeData(remote); saveLocal();
+      }
+      if (JSON.stringify({ settings, logs, lifts, moves }) !== before) render();
+      if (localAhead(remote)) await gh('/gists/' + gist.id, { method: 'PATCH', body: JSON.stringify({ files: { [GIST_FILE]: { content: gistBody() } } }) });
+      syncState = 'idle'; syncError = ''; lastSync = new Date();
+    } catch (e) { console.error(e); syncState = 'error'; syncError = e.message || String(e) }
+    renderStorage();
+  };
+  return busy = busy.then(run, run);
+}
+async function connectGist(token) {
+  gist = { token };
+  syncState = 'syncing'; renderStorage();
+  try {
+    const found = (await gh('/gists?per_page=100')).find(g => g.files && g.files[GIST_FILE]);
+    const g = found || await gh('/gists', { method: 'POST', body: JSON.stringify({ description: GIST_DESC, public: false, files: { [GIST_FILE]: { content: gistBody() } } }) });
+    gist = { token, id: g.id, url: g.html_url };
+    localStorage.setItem(LS_GIST, JSON.stringify(gist));
+    await syncGist();
+  } catch (e) {
+    gist = {}; syncState = 'none'; renderStorage();
+    alert('Koppelen mislukt: ' + e.message);
+  }
+}
+function disconnectGist() {
+  gist = {}; syncState = 'none'; lastSync = null;
+  localStorage.removeItem(LS_GIST);
+  renderStorage();
+}
+
+// Per log wint de nieuwste versie; instellingen uit de Gist winnen tenzij de lokale versie nieuwer is
+function mergeData(data) {
+  const merge = (mine, theirs = {}) => {
+    for (const [k, v] of Object.entries(theirs)) if (!mine[k] || (v.saved || '') > (mine[k].saved || '')) mine[k] = v;
+  };
+  merge(logs, data.logs);
+  merge(lifts, data.lifts);
+  merge(moves, data.moves);
+  if (data.settings && (data.settings.savedAt || '') >= (settings.savedAt || '')) {
+    settings = { ...settings, ...data.settings, exV: data.settings.exV };
+    migrateSettings();
+  }
+}
+function renderStorage() {
+  const time = lastSync ? lastSync.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '';
+  const [cls, label, status] = {
+    none: ['warn', '⚠ Alleen in deze browser', 'Je gegevens staan nu alleen in deze browser. Koppel GitHub om ze op al je apparaten te gebruiken.'],
+    syncing: ['', '⟳ Synchroniseren…', 'Bezig met synchroniseren…'],
+    idle: ['ok', `☁ Gist${time ? ' · ' + time : ''}`, `Gekoppeld aan je <a href="${esc(gist.url)}" target="_blank" rel="noopener">Gist</a>. Laatst gesynchroniseerd om ${time || '–'}.`],
+    error: ['warn', '⚠ Sync mislukt · opnieuw', `Synchroniseren mislukt: ${esc(syncError)}. Je wijzigingen staan wel in deze browser en gaan mee bij de volgende geslaagde sync.`],
+    outdated: ['warn', '⚠ Nieuwere versie beschikbaar', `Op een ander apparaat draait een nieuwere versie van het dashboard (${esc(remoteVersion)}). Dit bestand is versie ${APP_VERSION}. Vervang dit <code>index.html</code> door de nieuwe versie om alle functies te zien. Je gegevens blijven gewoon synchroniseren.`]
+  }[syncState === 'idle' && remoteVersion > APP_VERSION ? 'outdated' : syncState];
+  $('#storage').className = 'store ' + cls;
+  $('#storage').textContent = label;
+  $('#sStoreStatus').innerHTML = status;
+  $('#sGistConnect').hidden = !!gist.id;
+  $('#sGistConnected').hidden = !gist.id;
+  $('#sVersion').textContent = `Versie dashboard: ${APP_VERSION}`;
+}
+function watts(lo, hi) { const f = +settings.ftp; return f ? ` (${Math.round(f * lo / 100)}–${Math.round(f * hi / 100)} W)` : '' }
+function mainRace() { return settings.races.find(r => r.main) || settings.races[settings.races.length - 1] }
+
+// Bepaalt fase, blokweek en wedstrijden voor de week die op `mon` begint
+function context(mon) {
+  const m = mainRace();
+  const wtr = m ? weeksBetween(mon, monday(parseYmd(m.date))) : 99;
+  let phase;
+  if (wtr < 0) phase = 'herstel';
+  else if (wtr === 0) phase = 'race';
+  else if (wtr <= 2) phase = 'taper';
+  else if (wtr <= 15) phase = 'marathon';
+  else if (mon < parseYmd(settings.drempelStart)) phase = 'basis';
+  else if (mon < parseYmd(settings.snelheidStart)) phase = 'drempel';
+  else phase = 'snelheid';
+  const sinceStart = weeksBetween(parseYmd(settings.blockStart), mon);
+  const bw = phase === 'marathon' ? (15 - wtr) % 4 + 1 : ((sinceStart % 4) + 4) % 4 + 1;
+  const races = settings.races.filter(r => +monday(parseYmd(r.date)) === +mon);
+  const prevMon = addDays(mon, -7);
+  const postRace = settings.races.some(r => !r.main && r.km >= 15 && +monday(parseYmd(r.date)) === +prevMon);
+  const tuneup = races.find(r => !r.main);
+  const deload = bw === 4 && ['basis', 'drempel', 'snelheid', 'marathon'].includes(phase);
+  return { phase, bw, wtr, races, tuneup, postRace, deload, cycle: Math.max(0, Math.floor(sinceStart / 4)) };
+}
+
+function mobility(id, title = 'Mobiliteit', dur = 10) {
+  return { id, sport: 'mobility', title, dur, summary: 'Heupen, hamstrings, kuiten',
+    details: ['Couch stretch 2 × 45 s per kant.', '90/90 heupen 2 × 8.', 'Kuitstretch tegen de muur 2 × 45 s, met gestrekte en gebogen knie.', 'Thoracale rotatie 2 × 8 per kant.', dur > 10 ? 'Foamrollen: kuiten, quads en bilspieren, 1 min per spiergroep.' : null].filter(Boolean) };
+}
+function commute(id, title, easy, extra = []) {
+  const [lo, hi, z] = easy ? [55, 70, 'Z1–Z2'] : [65, 75, 'Z2'];
+  return { id, sport: 'bike', title, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
+    details: ['Eerste 10 min rustig inrijden.', 'Cadans 85–95 rpm.', 'Echt in de zone blijven: dit is aerobe basis, geen race.', 'Wind tegen? Accepteer een lagere snelheid, geen hogere watts.', ...extra] };
+}
+function easyRun(id, title, dur, opts = {}) {
+  return { id, sport: 'run', title, dur, optional: opts.optional,
+    summary: `${dur} min @ ${opts.pace || P.easy}${opts.strides ? ' + 6 × 20 s strides' : ''}`,
+    details: [`${dur} min @ ${opts.pace || P.easy}, op gesprekstempo.`, opts.strides ? `Daarna 6 × 20 s strides @ ${P.strides}, met volledig herstel.` : null, ...(opts.extra || [])].filter(Boolean) };
+}
+
+const PROGRESSIE = 'Progressie: haal je bij alle sets de bovenkant van de herhalingsrange, ga dan de volgende keer 1–2 kg zwaarder. Zit je op het zwaarste dumbbellgewicht? Maak het zwaarder met 3 s zakken of 1 s pauze onderin.';
+
+// Full body, nadruk onderlijf: zware benen op de harde dinsdag, zodat woensdag herstel is.
+// Modes: 'zwaar' (opbouw), 'onderhoud' (marathonblok), 'licht' (laatste 8 weken / taper).
+function strengthA(sets, mode) {
+  if (mode !== 'zwaar') {
+    const light = mode === 'licht';
+    return {
+      id: 'krachtA', sport: 'strength', dur: light ? 25 : 35,
+      title: `Kracht · full body ${mode}`,
+      summary: `${sets} sets · benen zwaar maar weinig, bovenlijf kort`,
+      details: [
+        'Warming-up 5 min: 10 lichte goblet squats, 10 hip hinges, 10 lunges.',
+        `Plyometrie: pogo jumps ${light ? 2 : 3} × 15${light ? '' : ', box jumps 2 × 5'}. Kort en snappy.`,
+        `Bulgarian split squat: ${sets} × ${light ? 6 : 5} per been, ${light ? '2 × 16–20 kg' : 'zwaar, 2 × 25–30 kg'}.`,
+        `Romanian deadlift: ${sets} × 6, ${light ? '2 × 20 kg' : '2 × 30 kg'}.`,
+        `Eenbenige kuitheffing: ${sets} × 12 per been met DB, de helft met gebogen knie.`,
+        `Pull-ups: ${sets} × max − 2.`,
+        `Bench press óf shoulder press (wissel per week): ${sets} × 8.`,
+        'Side plank: 2 × 30 s per kant.',
+        light ? 'Licht: ongeveer 60% van je normale gewicht. Alleen techniek en prikkel, geen spierpijn.'
+          : 'Onderhoud: zelfde gewicht als eind basisfase, minder sets. Doel is kracht vasthouden, niet opbouwen (RIR 2–3).'
+      ]
+    };
+  }
+  return {
+    id: 'krachtA', sport: 'strength', dur: sets === 2 ? 35 : 50,
+    title: 'Kracht A · nadruk onderlijf',
+    summary: `${sets} sets · plyometrie + zware benen + pull-ups`,
+    details: [
+      'Warming-up 5 min: 10 lichte goblet squats, 10 hip hinges, 10 lunges, 20 s plank.',
+      `Plyometrie (eerst, nu je nog fris bent): pogo jumps ${sets} × 15, box jumps op kniehoogte ${sets} × 5 (stap naar beneden), eenbenige hops 2 × 10 per been. Volledig herstel, maximale veerkracht.`,
+      `Bulgarian split squat: ${sets} × 6–8 per been, 2 × 25–30 kg, 2 min rust.`,
+      `Romanian deadlift: ${sets} × 6–8, 2 × 30 kg, 3 s zakken.`,
+      `Eenbenige kuitheffing: ${sets} × 10–12 per been met DB 30 kg, de helft met gebogen knie (soleus).`,
+      `Pull-ups: ${sets} × max − 2 (stop 2 herhalingen voor falen).`,
+      `Copenhagen plank: ${sets} × 20 s per kant.`,
+      `Dead bug: ${sets} × 10 per kant.`,
+      'Benen: houd 1–2 herhalingen over (RIR 1–2). Doe dit direct na de looptraining of minstens 6 uur later.',
+      PROGRESSIE
+    ]
+  };
+}
+// Full body, nadruk bovenlijf. Benen licht en explosief: zaterdag is de lange duurloop.
+function strengthB(sets) {
+  return {
+    id: 'krachtB', sport: 'strength', title: 'Kracht B · nadruk bovenlijf', dur: sets === 2 ? 35 : 45,
+    summary: `${sets} sets · press, pull-ups, dips + lichte benen`,
+    details: [
+      'Warming-up 5 min: halo met KB 16 kg, armcirkels, 10 lichte swings, 5 push-ups.',
+      `KB swing: ${sets === 2 ? 3 : 4} × 12, 24 kg. Explosief vanuit de heup, geen vermoeidheid.`,
+      `Bench press (dumbbells): ${sets} × 6–10, 2 × 25–30 kg, 2 min rust.`,
+      `Pull-ups: ${sets} × zoveel mogelijk met strakke techniek, 2–3 min rust. Dit is je meetmoment voor max pull-ups.`,
+      `Shoulder press (dumbbells): ${sets} × 6–10, 2 × 16–20 kg.`,
+      `Eenarmig roeien: ${sets} × 10 per arm, DB 30 kg (balans met al het drukken).`,
+      `Tricep dips: ${sets} × max − 2.`,
+      `Lateral raise: ${sets - 1} × 12–15, licht (6–10 kg), gecontroleerd.`,
+      'Step-up (kniehoogte): 2 × 8 per been, licht en snel omhoog. Geen spierpijn voor zaterdag.',
+      'Side plank: 2 × 30 s per kant.',
+      PROGRESSIE
+    ]
+  };
+}
+
+const Q = {
+  basis: { key: 'I', rest: '2:30 dribbelen', sets: [['5 × 1000 m', 62], ['6 × 1000 m', 68], ['5 × 1200 m', 68]] },
+  drempel: { key: 'T', rest: '2 min dribbelen', sets: [['4 × 2 km', 65], ['3 × 3 km', 68], ['5 × 2 km', 72]] },
+  snelheid: { key: 'I', rest: '2:30 dribbelen', sets: [['6 × 1000 m', 62], ['5 × 1200 m', 68], ['12 × 400 m', 55, 'R', '400 m dribbelen']] },
+  marathon: { key: 'T', rest: '2 min dribbelen', sets: [['5 × 2 km', 70], ['3 × 3 km', 70], ['2 × 5 km', 72, 'T', '3 min dribbelen']] }
+};
+function quality(c) {
+  let set, dur, key, rest;
+  if (c.tuneup) [set, dur, key, rest] = ['4 × 1 km', 45, 'T', '2 min dribbelen'];
+  else if (c.phase === 'race') [set, dur, key, rest] = ['3 × 1 km', 40, 'M', '2 min dribbelen'];
+  else if (c.phase === 'taper') [set, dur, key, rest] = c.wtr === 2 ? ['4 × 2 km', 60, 'T', '2 min dribbelen'] : ['5 × 1 km', 50, 'T', '2 min dribbelen'];
+  else if (c.deload) [set, dur, key, rest] = c.phase === 'basis' ? ['4 × 1600 m', 55, 'T', '90 s dribbelen'] : ['4 × 1 km', 50, 'T', '90 s dribbelen'];
+  else { const q = Q[c.phase], s = q.sets[c.bw - 1]; [set, dur, key, rest] = [s[0], s[1], s[2] || q.key, s[3] || q.rest] }
+  const [pl, pv] = PACE[key];
+  return {
+    id: 'di-iv', sport: 'run', dur,
+    title: (c.tuneup ? 'Scherp houden · ' : key === 'I' || key === 'R' ? 'Intervallen · ' : 'Tempo · ') + set,
+    summary: `@ ${pl} ${pv}, ${rest}`,
+    details: [
+      `15 min inlopen @ ${P.easy} + 4 × 20 s versnellingen.`,
+      `${set} @ ${pv}, ${rest}.`,
+      '10 min uitlopen.',
+      c.tuneup ? `Wedstrijdweek (${c.tuneup.name}): kort en scherp, niet vermoeien.`
+        : key === 'T' ? 'Drempel = "comfortabel zwaar": een tempo dat je 20–25 min vol zou kunnen houden.'
+        : 'De laatste herhaling moet net zo snel kunnen als de eerste. Lukt dat niet, stop dan een herhaling eerder.'
+    ]
+  };
+}
+
+const MARATHON_LR = {
+  15: [26, '26 km rustig', `Alles @ ${P.easy}.`],
+  14: [28, '28 km, laatste 6 km @ M-tempo', `22 km @ ${P.easy}, dan 6 km @ ${P.m}.`],
+  13: [30, '30 km met 3 × 4 km @ M-tempo', `8 km rustig, 3 × 4 km @ ${P.m} met 1 km rustig ertussen, rest rustig.`],
+  12: [22, '22 km rustig', 'Herstelweek.'],
+  11: [30, '30 km met 2 × 6 km @ M-tempo', `8 km rustig, 2 × 6 km @ ${P.m} met 2 km rustig ertussen, rest rustig.`],
+  10: [32, '32 km, laatste 5 km @ M-tempo', `27 km @ ${P.easy}, dan 5 km @ ${P.m}.`],
+  9: [30, '30 km met 14 km @ M-tempo', `8 km rustig, 14 km @ ${P.m}, 8 km uitlopen.`],
+  8: [22, '22 km rustig', 'Herstelweek.'],
+  7: [34, '34 km, laatste 8 km progressief naar M-tempo', `26 km @ ${P.easy}, dan 8 km steeds sneller tot ${P.m}.`],
+  6: [32, '32 km met 16 km @ M-tempo', `8 km rustig, 16 km @ ${P.m}, 8 km uitlopen.`],
+  5: [33, '33 km met 18 km @ M-tempo', `6 km rustig, 18 km @ ${P.m}, rest uitlopen. Generale repetitie voor voeding en schoenen.`],
+  4: [24, '24 km rustig', 'Herstelweek.'],
+  3: [32, '32 km met 2 × 8 km @ M-tempo', `6 km rustig, 2 × 8 km @ ${P.m} met 2 km rustig ertussen, rest uitlopen. Laatste grote training.`],
+  2: [24, '24 km met 8 km @ M-tempo', `10 km rustig, 8 km @ ${P.m}, 6 km uitlopen.`],
+  1: [16, '16 km met 5 km @ M-tempo', `8 km rustig, 5 km @ ${P.m}, 3 km uitlopen.`]
+};
+function longRun(c) {
+  let km, desc, how;
+  if (c.phase === 'marathon' || c.phase === 'taper') [km, desc, how] = MARATHON_LR[c.wtr];
+  else if (c.phase === 'basis') {
+    const b = Math.min(18 + 2 * c.cycle, 24);
+    [km, desc, how] = [
+      [b, `${b} km rustig`, `Alles @ ${P.easy}.`],
+      [b + 2, `${b + 2} km, laatste 4 km @ M-tempo`, `${b - 2} km @ ${P.easy}, dan 4 km @ ${P.m}.`],
+      [Math.min(b + 3, 26), `${Math.min(b + 3, 26)} km met 2 × 5 km @ M-tempo`, `6 km rustig, 5 km @ ${P.m}, 1 km rustig, 5 km @ ${P.m}, rest uitlopen.`],
+      [b - 4, `${b - 4} km rustig`, `Alles @ ${P.easy}. Herstelweek.`]
+    ][c.bw - 1];
+  } else if (c.phase === 'drempel') {
+    [km, desc, how] = [
+      [22, '22 km met 3 × 3 km @ HM-tempo', `8 km rustig, 3 × 3 km @ ${P.hm} met 1 km rustig ertussen, rest uitlopen.`],
+      [24, '24 km, laatste 5 km @ HM-tempo', `19 km @ ${P.easy}, dan 5 km @ ${P.hm}.`],
+      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`],
+      [16, '16 km rustig', 'Herstelweek.']
+    ][c.bw - 1];
+  } else if (c.phase === 'snelheid') {
+    [km, desc, how] = [
+      [22, '22 km rustig', `Alles @ ${P.easy}.`],
+      [24, '24 km, laatste 3 km progressief', `21 km @ ${P.easy}, dan 3 km steeds sneller tot ${P.hm}.`],
+      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`],
+      [16, '16 km rustig', 'Herstelweek.']
+    ][c.bw - 1];
+  } else if (c.phase === 'herstel') return easyRun('za-lr', 'Rustige loop', 40, { optional: true, pace: P.rec });
+  else return null;
+  return {
+    id: 'za-lr', sport: 'run', title: `Lange duurloop · ${km} km`, dur: runDur(km), summary: desc,
+    details: [how,
+      c.phase === 'marathon' || c.phase === 'taper' ? 'Oefen je racevoeding: 60–90 g koolhydraten per uur, elke 25–30 min een gel.' : 'Duurt het langer dan 90 min? Neem gels of sportdrank mee (30–60 g koolhydraten per uur).',
+      'Kies een vlak parcours voor de stukken op tempo.']
+  };
+}
+
+function raceSession(r) {
+  const km = +r.km;
+  const tips = km >= 40
+    ? ['Ontbijt 3 uur voor de start: 2–3 g koolhydraten per kg lichaamsgewicht.', '10 min heel rustig inlopen is genoeg.', 'Eerste 5 km 2–3 s/km langzamer dan je doeltempo. Na 30 km mag je versnellen als het goed voelt.', 'Gel elke 25–30 min, begin na 30–40 min.']
+    : km >= 20
+      ? ['15 min inlopen + 4 versnellingen.', 'Eerste 3 km gecontroleerd, dan op schema. Vanaf 15 km alles geven.', '1 gel na ongeveer 45 min.', 'Dit is een ijkpunt: je tijd bepaalt je doeltempo voor Berlijn.']
+      : ['20 min inlopen + 4–6 versnellingen.', 'Eerste km niet te snel: 2–3 s/km boven doeltempo.', 'Halverwege beoordelen; de laatste 2–3 km alles geven.'];
+  return { id: 'race-' + r.id, sport: 'run', race: true, title: `🏁 ${r.name}`, dur: Math.round(km * 4.1) + 20,
+    summary: `${String(km).replace('.', ',')} km${r.target ? ` · doel ${r.target}` : ''}`, details: tips };
+}
+
+// Weekschema voor de context. Index 0 = maandag.
+function plan(c) {
+  const { phase, bw, wtr, deload } = c;
+  const pre = ['basis', 'drempel', 'snelheid'].includes(phase);
+  const mar = phase === 'marathon';
+  const w = [[], [], [], [], [], [], []];
+
+  if (phase === 'herstel') {
+    w[0] = [commute('ma-heen', 'Woon-werk heen', true), commute('ma-terug', 'Woon-werk terug', true)];
+    w[2] = [easyRun('wo-ez', 'Herstelloop', 30, { optional: true, pace: P.rec })];
+    w[3] = [commute('do-heen', 'Woon-werk heen', true), commute('do-terug', 'Woon-werk terug', true)];
+    w[5] = [longRun(c)];
+    w[6] = [mobility('zo-mob', 'Mobiliteit + foamrollen', 15)];
+    return w;
+  }
+
+  // Maandag
+  w[0].push(commute('ma-heen', 'Woon-werk heen', phase === 'race'), commute('ma-terug', 'Woon-werk terug', true, ['Herstelrit voor de kwaliteitstraining van dinsdag.']), mobility('ma-mob'));
+
+  // Dinsdag
+  w[1].push(c.postRace ? easyRun('di-iv', 'Herstelloop na wedstrijd', 40, { pace: P.rec, extra: ['Benen nog moe van de wedstrijd: echt rustig, intervallen deze week overslaan.'] }) : quality(c));
+  if (pre) w[1].push(strengthA(deload || c.tuneup || c.postRace ? 2 : 3, 'zwaar'));
+  else if (mar) w[1].push(strengthA(2, wtr <= 8 ? 'licht' : 'onderhoud'));
+  else if (phase === 'taper' && wtr === 2) w[1].push(strengthA(2, 'licht'));
+
+  // Woensdag
+  const ez = mar ? [65, 70, 75, 50][bw - 1] : phase === 'taper' ? (wtr === 2 ? 50 : 40) : phase === 'race' ? 30 : [50, 55, 60, 40][bw - 1];
+  w[2].push(easyRun('wo-ez', 'Rustige duurloop', ez, { strides: phase !== 'race', extra: ['Zware benen van de kracht van dinsdag? Loop dan gerust 5:10/km.'] }));
+
+  // Donderdag
+  const sweet = pre && !deload && !c.tuneup && !c.postRace;
+  const ss = [['3 × 10 min', 88], ['3 × 12 min', 90], ['2 × 20 min', 92]][bw - 1];
+  const thuNote = phase === 'race' ? ['Raceweek: liever met de trein of auto? Prima, sla de ritten dan over.'] : [];
+  w[3].push(commute('do-heen', 'Woon-werk heen', phase === 'race', ['Rustig rijden, spaar je voor de rit terug.', ...thuNote]));
+  w[3].push(sweet
+    ? { id: 'do-terug', sport: 'bike', title: `Terug · sweet spot ${ss[0]}`, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
+        details: ['15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', 'Rest van de rit in Z1–Z2.'] }
+    : commute('do-terug', 'Woon-werk terug', phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote]));
+  if (phase === 'race') w[3].forEach(s => s.optional = true);
+
+  // Vrijdag
+  if (pre) {
+    if (!c.tuneup) w[4].push(strengthB(deload || c.postRace ? 2 : 3));
+    w[4].push(easyRun('vr-rec', 'Herstelloop', 30, { optional: true, pace: P.rec, extra: ['Alleen als de benen goed voelen. Anders overslaan, dat is ook prima.'] }));
+  } else if (mar || phase === 'taper') w[4].push(easyRun('vr-ez', 'Rustige loop + strides', mar && !deload ? 45 : 35, { strides: true }));
+  else w[4].push(mobility('vr-mob', 'Rust / mobiliteit'));
+
+  // Zaterdag
+  const lr = longRun(c);
+  if (lr) w[5].push(lr);
+
+  // Zondag
+  if (mar) w[6].push(easyRun('zo-ez', 'Herstelloop', deload ? 30 : 40, { pace: P.rec, extra: ['Rustig de benen losmaken na de lange duurloop.'] }));
+  else w[6].push({ id: 'zo-rit', sport: 'bike', title: 'Herstelrit of rust', optional: true, dur: 75, summary: `60–90 min (~${rideKm(60)}–${rideKm(90)} km) · Z1–Z2 50–70% FTP${watts(50, 70)}`,
+    details: ['Optioneel. Moe na de lange duurloop? Neem dan rust.', 'Koffiestop toegestaan.'] });
+  w[6].push(mobility('zo-mob', 'Mobiliteit + foamrollen', 15));
+
+  // Wedstrijden: racedag vervangen, dag ervoor shake-out, dag erna geen looptraining of kracht
+  for (const r of c.races) {
+    const ri = weekday(r.date);
+    w[ri] = [raceSession(r)];
+    if (ri > 0) w[ri - 1] = [...w[ri - 1].filter(s => s.sport === 'bike' || s.sport === 'mobility'),
+      { id: 'shake', sport: 'run', title: 'Shake-out', dur: 20, summary: '20 min heel rustig + 4 strides', details: ['20 min heel rustig, daarna 4 × 15 s versnellingen.', 'Koolhydraten aanvullen, vroeg naar bed.'] }];
+    if (ri > 1) w[ri - 2] = w[ri - 2].filter(s => s.sport !== 'strength');
+    if (ri < 6) w[ri + 1] = w[ri + 1].filter(s => s.sport === 'bike' || s.sport === 'mobility');
+  }
+  return w;
+}
+
+// Weekschema inclusief zelf verplaatste sessies (binnen dezelfde week)
+function weekPlan(mon) {
+  const w = plan(context(mon));
+  for (let i = 0; i < 7; i++) {
+    const orig = ymd(addDays(mon, i));
+    for (const s of [...w[i]]) {
+      const mv = moves[orig + '|' + s.id];
+      if (!mv || mv.deleted || mv.to === orig) continue;
+      const to = weekday(mv.to);
+      if (+monday(parseYmd(mv.to)) !== +mon) continue;
+      w[i] = w[i].filter(x => x !== s);
+      w[to].push({ ...s, movedFrom: orig });
+    }
+  }
+  return w;
+}
+function sessionFor(date, id) {
+  return weekPlan(monday(parseYmd(date)))[weekday(date)].find(x => x.id === id);
+}
+// Coachadvies bij het verplaatsen van kracht: zware benen niet vlak voor of na de lange duurloop of een wedstrijd
+function moveAdvice(s, w, to) {
+  if (s.sport !== 'strength') return '';
+  const has = (i, f) => i >= 0 && i < 7 && w[i].some(f);
+  const long = x => x.id === 'za-lr' || x.race;
+  if (has(to + 1, long)) return '⚠ dag voor je lange duurloop of wedstrijd';
+  if (has(to, long)) return '⚠ zelfde dag als je lange duurloop of wedstrijd';
+  if (has(to - 1, long)) return '⚠ dag na je lange duurloop of wedstrijd';
+  const strength = x => x.sport === 'strength';
+  if (has(to, strength) || has(to - 1, strength) || has(to + 1, strength)) return '⚠ te dicht op je andere krachtsessie';
+  if (s.id === 'krachtA' && has(to + 2, long)) return '⚠ minder dan 48 u voor je lange duurloop';
+  if (has(to + 1, x => x.id === 'do-terug' && /sweet/.test(x.title))) return '✓ kan · rij de sweet spot de dag erna op gevoel';
+  if (has(to + 1, x => x.id === 'di-iv' && x.title.startsWith('Interval'))) return '⚠ dag voor je intervallen';
+  return '✓ goede dag';
+}
+const colorOf = s => s.race ? 'var(--race)' : SPORT[s.sport].c;
+
+function cardHtml(s, date, lg) {
+  const st = lg ? lg.status : null;
+  return `<div class="card ${st ? 'is' + st : ''}${s.race ? ' race' : ''}" style="--c:${colorOf(s)}" data-date="${date}" data-id="${s.id}">
+    <div class="t"><span>${esc(s.title)}</span><span class="dur">${s.dur} min</span></div>
+    <div class="s">${esc(s.summary)}</div>
+    <div class="meta">${s.optional ? '<span class="chip">optioneel</span>' : ''}${s.movedFrom ? `<span class="chip">↷ van ${DAYS[weekday(s.movedFrom)].slice(0, 2).toLowerCase()}</span>` : ''}${st ? `<span class="chip ${st}">${STATUS[st]}</span>` : ''}${lg && lg.rpe ? `<span class="chip">RPE ${lg.rpe}</span>` : ''}${lg && lg.feel ? `<span class="chip">${FEEL[lg.feel]}</span>` : ''}</div>
+    ${lg && lg.notes ? `<div class="note">“${esc(lg.notes)}”</div>` : ''}
+  </div>`;
+}
+
+function render() { tab === 'kracht' ? renderLifts() : renderWeek() }
+
+function renderWeek() {
+  const today = ymd(new Date());
+  const c = context(viewMon);
+  const p = weekPlan(viewMon);
+  const fmt = d => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  const end = addDays(viewMon, 6);
+  const ph = PHASE[c.phase];
+  $('#wk').textContent = `Week ${isoWeek(viewMon)} · ${fmt(viewMon)} – ${fmt(end)}`;
+  $('#badges').innerHTML = `<span class="badge phase" style="--p:${ph.c}">${ph.l}</span>`
+    + (['basis', 'drempel', 'snelheid', 'marathon'].includes(c.phase) ? `<span class="badge${c.deload ? ' deload' : ''}">${c.deload ? 'Herstelweek' : `Blokweek ${c.bw} van 4`}</span>` : '')
+    + (c.wtr > 0 && c.wtr < 99 ? `<span class="badge">nog ${c.wtr} ${c.wtr === 1 ? 'week' : 'weken'} tot ${esc(mainRace().name)}</span>` : '')
+    + c.races.map(r => `<span class="badge" style="color:var(--race);border-color:var(--race)">🏁 ${esc(r.name)}</span>`).join('')
+    + (c.postRace ? '<span class="badge deload">Herstel na wedstrijd</span>' : '');
+  $('#phaseDesc').textContent = ph.d;
+
+  let plN = 0, doneN = 0, plMin = 0, doneMin = 0, runKm = 0, bikeKm = 0, rpeSum = 0, rpeN = 0, html = '';
+  const open = [];
+  const weekPast = ymd(end) < today;
+
+  p.forEach((sessions, i) => {
+    const day = addDays(viewMon, i), date = ymd(day);
+    html += `<div class="day${date === today ? ' today' : ''}"><div class="dayhead"><b>${DAYS[i]}</b><span>${date === today ? 'vandaag' : fmt(day)}</span></div>`;
+    if (!sessions.length) html += '<div class="rest">Rustdag</div>';
+    sessions.forEach(s => {
+      const lg = getLog(date + '|' + s.id);
+      if (!s.optional) { plN++; plMin += s.dur }
+      if (lg && lg.status !== 'skipped') {
+        if (!s.optional) doneN++;
+        doneMin += lg.duration || s.dur;
+        if (s.sport === 'run') runKm += lg.distance || 0;
+        if (s.sport === 'bike') bikeKm += lg.distance || 0;
+      }
+      if (lg && lg.rpe) { rpeSum += lg.rpe; rpeN++ }
+      if (!lg && (date >= today || (weekPast && !s.optional))) open.push({ date, i, s });
+      html += cardHtml(s, date, lg);
+    });
+    html += '</div>';
+  });
+  $('#week').innerHTML = html;
+
+  const pct = plN ? Math.round(doneN / plN * 100) : 0;
+  $('#stats').innerHTML = `
+    <div class="stat"><div class="l">Sessies afgerond</div><div class="v">${doneN} <small>/ ${plN}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+    <div class="stat"><div class="l">Trainingstijd</div><div class="v">${fmtMin(doneMin)} <small>/ ${fmtMin(plMin)} u</small></div><div class="bar"><i style="width:${Math.min(100, plMin ? doneMin / plMin * 100 : 0)}%"></i></div></div>
+    <div class="stat"><div class="l">Hardlopen</div><div class="v">${runKm.toFixed(1)} <small>km</small></div></div>
+    <div class="stat"><div class="l">Fietsen</div><div class="v">${bikeKm.toFixed(0)} <small>km</small></div></div>
+    <div class="stat"><div class="l">Gem. RPE</div><div class="v">${rpeN ? (rpeSum / rpeN).toFixed(1) : '–'}</div></div>`;
+
+  $('#upTitle').textContent = weekPast ? 'Niet gelogd in deze week' : 'Nog gepland deze week';
+  $('#up').innerHTML = open.length
+    ? open.map(o => `<div class="upitem" style="--c:${colorOf(o.s)}" data-date="${o.date}" data-id="${o.s.id}">
+        <small>${o.date === today ? 'Vandaag' : DAYS[o.i]} · ${o.s.dur} min${o.s.optional ? ' · optioneel' : ''}</small>
+        <b>${esc(o.s.title)}</b><small>${esc(o.s.summary)}</small></div>`).join('')
+    : '<div class="empty">Alles gelogd. Mooi werk 💪</div>';
+
+  renderSeason();
+  renderZones();
+}
+
+function renderSeason() {
+  const m = mainRace();
+  if (!m) { $('#season').innerHTML = ''; return }
+  const todayMon = monday(new Date());
+  const start = monday(new Date(Math.min(parseYmd(settings.blockStart), todayMon)));
+  const n = weeksBetween(start, monday(parseYmd(m.date))) + 2;
+  let cells = '', lastMonth = -1;
+  for (let k = 0; k < n; k++) {
+    const mon = addDays(start, 7 * k), c = context(mon), ph = PHASE[c.phase];
+    const month = addDays(mon, 3).getMonth();
+    const label = month !== lastMonth ? addDays(mon, 3).toLocaleDateString('nl-NL', { month: 'short' }) : '';
+    lastMonth = month;
+    const tip = `Week ${isoWeek(mon)} (${mon.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}) · ${ph.l}${c.deload ? ' · herstelweek' : ''}${c.races.map(r => ' · 🏁 ' + r.name).join('')}`;
+    cells += `<div class="tw${+mon === +viewMon ? ' sel' : ''}${+mon === +todayMon ? ' now' : ''}${mon < todayMon ? ' past' : ''}${c.deload ? ' dl' : ''}" style="--p:${ph.c}" data-mon="${ymd(mon)}" title="${esc(tip)}">
+      <div class="f">${c.races.length ? '🏁' : ''}</div><div class="b"></div><div class="m">${label}</div></div>`;
+  }
+  const today = ymd(new Date());
+  const next = [...settings.races].sort((a, b) => a.date.localeCompare(b.date)).find(r => r.date >= today);
+  const days = next ? Math.round((parseYmd(next.date) - parseYmd(today)) / 864e5) : 0;
+  const weeksToMain = weeksBetween(todayMon, monday(parseYmd(m.date)));
+  $('#season').innerHTML = `
+    <div class="season-top">
+      <span><b>Op weg naar ${esc(m.name)}</b> · ${parseYmd(m.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}${m.target ? ` · doel ${esc(m.target)}` : ''}${weeksToMain > 0 ? ` · nog ${weeksToMain} weken` : ''}</span>
+      ${next && next !== m ? `<span>Volgende wedstrijd: <b>${esc(next.name)}</b> ${days === 0 ? 'vandaag' : `over ${days} ${days === 1 ? 'dag' : 'dagen'}`}${next.target ? ` · doel ${esc(next.target)}` : ''}</span>` : ''}
+    </div>
+    <div class="tl">${cells}</div>
+    <div class="tl-legend">${Object.entries(PHASE).filter(([k]) => k !== 'herstel').map(([, v]) => `<span><i style="background:${v.c}"></i>${v.l}</span>`).join('')}<span>Klik op een week om erheen te gaan.</span></div>`;
+}
+
+function renderZones() {
+  const z = [['Z1 herstel', 0, 55], ['Z2 duur', 56, 75], ['Z3 tempo', 76, 87], ['Sweet spot', 88, 94], ['Z4 drempel', 95, 105], ['Z5 VO2max', 106, 120]];
+  const f = +settings.ftp;
+  $('#zones').innerHTML = `
+    <table><tr><th>Lopen</th><th>Tempo</th><th>Gebruik</th></tr>
+      <tr><td>Herstel</td><td>${P.rec}</td><td>herstelloop</td></tr>
+      <tr><td>Rustig (E)</td><td>${P.easy}</td><td>duurloop, lange duurloop</td></tr>
+      <tr><td>Marathon (M)</td><td>${P.m}</td><td>blokken in de lange duurloop</td></tr>
+      <tr><td>Halve marathon (HM)</td><td>${P.hm}</td><td>drempelfase</td></tr>
+      <tr><td>Drempel (T)</td><td>${P.t}</td><td>tempoduur</td></tr>
+      <tr><td>Interval (I)</td><td>${P.i}</td><td>1000–1200 m herhalingen</td></tr>
+      <tr><td>Repetitie (R)</td><td>${P.r}</td><td>400 m herhalingen</td></tr></table>
+    <table><tr><th>Fietsen</th><th>% FTP</th><th>Watt${f ? '' : ' (stel FTP in)'}</th></tr>
+      ${z.map(([n, lo, hi]) => `<tr><td>${n}</td><td>${lo ? lo + '–' : '&lt; '}${hi}%</td><td>${f ? (lo ? Math.round(f * lo / 100) + '–' : '&lt; ') + Math.round(f * hi / 100) + ' W' : '–'}</td></tr>`).join('')}</table>`;
+}
+
+// Keuzelijst om een sessie naar een andere dag in dezelfde week te verplaatsen
+function moveHtml(s, date, logged) {
+  if (logged) return '<div class="hint">Al gelogd. Wis eerst de log als je deze training wilt verplaatsen.</div>';
+  const mon = monday(parseYmd(date)), orig = s.movedFrom || date;
+  const w = weekPlan(mon).map(day => day.filter(x => x.id !== s.id));
+  const opts = DAYS.map((name, i) => {
+    const d = ymd(addDays(mon, i)), adv = moveAdvice(s, w, i);
+    return `<option value="${d}"${d === date ? ' selected' : ''}>${name}${d === orig ? ' (oorspronkelijk)' : ''}${adv ? ' · ' + adv : ''}</option>`;
+  }).join('');
+  return `<div class="row"><label style="max-width:420px">Verplaatsen naar<select id="fMove" class="movesel">${opts}</select></label></div>`;
+}
+
+function openSession(date, id) {
+  const s = sessionFor(date, id);
+  if (!s) return;
+  const d = parseYmd(date), idx = weekday(date);
+  const existing = getLog(date + '|' + id);
+  const lg = existing || {};
+  const hasDist = s.sport === 'run' || s.sport === 'bike';
+  cur = { date, id, status: lg.status || 'done', feel: lg.feel || 0 };
+  $('#dlgBody').innerHTML = `
+    <div class="sub" style="color:${colorOf(s)}">${s.race ? 'Wedstrijd' : SPORT[s.sport].l} · ${DAYS[idx]} ${d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })}${s.optional ? ' · optioneel' : ''}</div>
+    <h3>${esc(s.title)}</h3>
+    <div class="sub">${esc(s.summary)} · gepland ${s.dur} min</div>
+    <ul>${s.movedFrom ? `<li>↷ Verplaatst van ${DAYS[weekday(s.movedFrom)].toLowerCase()}. ${esc(moveAdvice(s, weekPlan(monday(d)).map(day => day.filter(x => x.id !== id)), idx))}</li>` : ''}${s.details.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    ${moveHtml(s, date, existing)}
+    <div class="form">
+      <div class="lbl">Status<div class="seg" id="fStatus">${Object.entries({ done: 'Gedaan', partial: 'Deels', skipped: 'Overgeslagen' }).map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join('')}</div></div>
+      <label>Zwaarte (RPE 1–10): <b id="rpeV"></b><input type="range" id="fRpe" min="1" max="10" step="1" value="${lg.rpe || 6}"></label>
+      <div class="lbl">Gevoel<div class="seg feel" id="fFeel">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}">${FEEL[n]}</button>`).join('')}</div></div>
+      <div class="row">
+        <label>Duur (min)<input type="number" id="fDur" min="0" value="${esc(lg.duration)}" placeholder="${s.dur}"></label>
+        ${hasDist ? `<label>Afstand (km)<input type="number" step="0.1" min="0" id="fDist" value="${esc(lg.distance)}"></label>` : ''}
+        ${s.sport === 'bike' ? `<label>Gem./NP (W)<input type="number" min="0" id="fPow" value="${esc(lg.power)}"></label>` : ''}
+        ${hasDist ? `<label>Gem. hartslag<input type="number" min="0" id="fHr" value="${esc(lg.hr)}"></label>` : ''}
+      </div>
+      <label>Feedback / notities<textarea id="fNotes" placeholder="${s.race ? 'Eindtijd, splits, hoe voelde het, wat neem je mee naar Berlijn?' : 'Hoe ging het? Benen, slaap, pijntjes, wat zou je aanpassen?'}">${esc(lg.notes)}</textarea></label>
+      <div class="actions">
+        <div>${existing ? '<button type="button" id="fClear">Log wissen</button> ' : ''}${s.sport === 'strength' ? '<button type="button" id="fLift">🏋️ Gewichten loggen</button>' : ''}</div>
+        <div><button type="button" id="fCancel">Sluiten</button> <button type="button" class="primary" id="fSave">Opslaan</button></div>
+      </div>
+    </div>`;
+  syncForm();
+  $('#fStatus').onclick = e => { const v = e.target.dataset.v; if (v) { cur.status = v; syncForm() } };
+  $('#fFeel').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (v) { cur.feel = cur.feel === +v ? 0 : +v; syncForm() } };
+  $('#fRpe').oninput = syncForm;
+  $('#fCancel').onclick = () => $('#dlg').close();
+  $('#fSave').onclick = saveLog;
+  if (existing) $('#fClear').onclick = () => { tombstone(date + '|' + id); persist(); $('#dlg').close(); render() };
+  if (s.sport === 'strength') $('#fLift').onclick = () => { $('#dlg').close(); showTab('kracht'); openLift(null, date) };
+  if ($('#fMove')) $('#fMove').onchange = e => {
+    const orig = s.movedFrom || date, to = e.target.value;
+    moves[orig + '|' + id] = to === orig ? { deleted: true, saved: new Date().toISOString() } : { to, saved: new Date().toISOString() };
+    persist(); $('#dlg').close(); render();
+  };
+  $('#dlg').showModal();
+}
+
+function syncForm() {
+  document.querySelectorAll('#fStatus button').forEach(b => b.classList.toggle('on', b.dataset.v === cur.status));
+  document.querySelectorAll('#fFeel button').forEach(b => b.classList.toggle('on', +b.dataset.v === cur.feel));
+  const r = +$('#fRpe').value;
+  $('#rpeV').textContent = r + ' · ' + ['', 'heel licht', 'heel licht', 'licht', 'gemiddeld', 'gemiddeld', 'pittig', 'zwaar', 'zwaar', 'bijna maximaal', 'maximaal'][r];
+}
+
+function saveLog() {
+  const num = id => { const el = $('#' + id); return el && el.value !== '' ? +el.value : undefined };
+  const skipped = cur.status === 'skipped';
+  logs[cur.date + '|' + cur.id] = {
+    status: cur.status,
+    rpe: skipped ? undefined : +$('#fRpe').value,
+    feel: cur.feel || undefined,
+    duration: skipped ? undefined : num('fDur'),
+    distance: skipped ? undefined : num('fDist'),
+    power: skipped ? undefined : num('fPow'),
+    hr: skipped ? undefined : num('fHr'),
+    notes: $('#fNotes').value.trim() || undefined,
+    saved: new Date().toISOString()
+  };
+  persist();
+  $('#dlg').close();
+  render();
+}
+
+function raceRow(r) {
+  return `<div class="race-row" data-id="${esc(r.id)}">
+    <input class="rn" value="${esc(r.name)}" placeholder="Naam">
+    <input class="rd" type="date" value="${esc(r.date)}">
+    <input class="rk" type="number" step="0.1" min="1" value="${esc(r.km)}" placeholder="km">
+    <input class="rt" value="${esc(r.target)}" placeholder="doel">
+    <label><input type="radio" name="mainRace" class="rm"${r.main ? ' checked' : ''}></label>
+    <button type="button" class="rx" title="Verwijderen">✕</button>
+  </div>`;
+}
+
+// ---- Kracht: oefeningen, sessies en progressie ----
+let tab = location.hash === '#kracht' ? 'kracht' : 'week';
+let liftMetric = 'top', liftRange = 0, liftEdit = null;
+const CW = 360, CH = 150; // viewBox van de grafiekjes
+const num1 = v => (Math.round(v * 10) / 10).toLocaleString('nl-NL');
+const fmtDate = s => parseYmd(s).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: '2-digit' });
+const liftList = () => Object.entries(lifts).filter(([, l]) => !l.deleted).map(([id, l]) => ({ id, ...l }))
+  .sort((a, b) => a.date.localeCompare(b.date) || (a.saved || '').localeCompare(b.saved || ''));
+
+// Kerncijfers van één oefening in één sessie
+function exStats(sets) {
+  sets = (sets || []).filter(s => s.reps > 0);
+  if (!sets.length) return null;
+  const kg = s => +s.kg || 0;
+  return {
+    list: sets,
+    top: sets.reduce((a, s) => kg(s) > kg(a) || (kg(s) === kg(a) && s.reps > a.reps) ? s : a),
+    maxReps: sets.reduce((a, s) => s.reps > a.reps || (s.reps === a.reps && kg(s) > kg(a)) ? s : a),
+    e1rm: Math.max(...sets.map(s => kg(s) * (1 + s.reps / 30))), // Epley
+    vol: sets.reduce((t, s) => t + kg(s) * s.reps, 0),
+    reps: sets.reduce((t, s) => t + s.reps, 0)
+  };
+}
+// Waarde in de grafiek: bij kg-oefeningen gewicht, bij lichaamsgewicht herhalingen
+function metricOf(ex, st) {
+  if (ex.type === 'reps') return liftMetric === 'vol' ? st.reps : st.maxReps.reps;
+  return liftMetric === 'e1rm' ? Math.round(st.e1rm * 2) / 2 : liftMetric === 'vol' ? st.vol : +st.top.kg || 0;
+}
+function metricUnit(ex) {
+  if (ex.type === 'reps') return liftMetric === 'vol' ? 'herh. totaal' : 'max herh.';
+  return liftMetric === 'e1rm' ? 'kg geschat 1RM' : liftMetric === 'vol' ? 'kg volume' : 'kg zwaarste set';
+}
+const setText = (ex, s) => ex.type === 'reps' ? `${s.reps} herh.${+s.kg ? ` +${num1(s.kg)} kg` : ''}` : `${num1(+s.kg || 0)} kg × ${s.reps}`;
+const setsText = (ex, sets) => ex.type === 'reps'
+  ? sets.map(s => s.reps + (+s.kg ? ` (+${num1(s.kg)} kg)` : '')).join(' · ') + ' herh.'
+  : sets.map(s => `${num1(+s.kg || 0)}×${s.reps}`).join(' · ');
+
+function seriesFor(ex) {
+  const pts = [];
+  let best = -Infinity;
+  for (const l of liftList()) {
+    const st = exStats((l.sets || {})[ex.id]);
+    if (!st) continue;
+    const v = metricOf(ex, st);
+    // Bij zwaarste set telt ook: meer herhalingen op hetzelfde topgewicht is een record
+    const score = ex.type === 'kg' && liftMetric === 'top' ? v * 1000 + st.top.reps : v;
+    pts.push({ id: l.id, date: l.date, v, st, pr: pts.length > 0 && score > best });
+    best = Math.max(best, score);
+  }
+  return pts;
+}
+
+function deltaHtml(ex, prev, cur) {
+  if (!prev) return '<span class="delta flat">eerste meting</span>';
+  let d, txt;
+  if (liftMetric === 'top' && ex.type === 'kg' && (+cur.top.kg || 0) === (+prev.top.kg || 0)) {
+    // Zelfde gewicht: groei zit dan in herhalingen
+    d = cur.top.reps - prev.top.reps;
+    txt = d ? `${d > 0 ? '+' : '−'}${Math.abs(d)} herh. op ${num1(+cur.top.kg || 0)} kg` : 'gelijk';
+  } else {
+    d = metricOf(ex, cur) - metricOf(ex, prev);
+    txt = d ? `${d > 0 ? '+' : '−'}${num1(Math.abs(d))} ${ex.type === 'reps' ? 'herh.' : 'kg'}` : 'gelijk';
+  }
+  const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+  return `<span class="delta ${cls}">${d > 0 ? '▲' : d < 0 ? '▼' : '＝'} ${txt}</span> <span class="hint">t.o.v. vorige sessie</span>`;
+}
+
+function niceStep(range) {
+  const raw = range / 3, p = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw);
+}
+function chartSvg(pts, ex) {
+  const L = 34, R = 42, T = 14, B = 22;
+  const vs = pts.map(p => p.v);
+  let lo = Math.min(...vs), hi = Math.max(...vs);
+  if (lo === hi) { const pad = ex.type === 'reps' ? 2 : 2.5; lo -= pad; hi += pad }
+  const step = niceStep(hi - lo);
+  lo = Math.max(0, Math.floor(lo / step) * step);
+  hi = Math.ceil(hi / step) * step;
+  const t0 = parseYmd(pts[0].date).getTime(), t1 = parseYmd(pts[pts.length - 1].date).getTime();
+  const x = d => t1 === t0 ? (L + CW - R) / 2 : L + (parseYmd(d).getTime() - t0) / (t1 - t0) * (CW - L - R);
+  const y = v => T + (hi - v) / (hi - lo) * (CH - T - B);
+  const coords = pts.map(p => [+x(p.date).toFixed(1), +y(p.v).toFixed(1)]);
+  let grid = '';
+  for (let v = lo; v <= hi + 1e-9; v += step)
+    grid += `<line class="grid" x1="${L}" x2="${CW - R + 10}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 3.5}" text-anchor="end">${num1(v)}</text>`;
+  const [lx, ly] = coords[coords.length - 1];
+  const xlab = t1 === t0
+    ? `<text x="${lx}" y="${CH - 6}" text-anchor="middle">${fmtDate(pts[0].date)}</text>`
+    : `<text x="${coords[0][0]}" y="${CH - 6}">${fmtDate(pts[0].date)}</text><text x="${lx}" y="${CH - 6}" text-anchor="end">${fmtDate(pts[pts.length - 1].date)}</text>`;
+  const svg = `<svg class="chart" viewBox="0 0 ${CW} ${CH}" tabindex="0" role="img" aria-label="${esc(ex.name)}: ${pts.length} metingen, laatste ${num1(pts[pts.length - 1].v)} ${metricUnit(ex)}. Pijltjestoetsen om door de sessies te lopen.">
+    ${grid}<line class="xh" x1="0" x2="0" y1="${T}" y2="${CH - B}"/>
+    <path class="ln" d="${coords.map((c, i) => (i ? 'L' : 'M') + c[0] + ',' + c[1]).join('')}"/>
+    ${coords.map(c => `<circle class="dot" cx="${c[0]}" cy="${c[1]}" r="4"/>`).join('')}
+    <text class="end" x="${lx + 8}" y="${ly + 4}">${num1(pts[pts.length - 1].v)}</text>${xlab}
+    <rect x="0" y="0" width="${CW}" height="${CH}" fill="transparent"/></svg>`;
+  return { svg, coords };
+}
+function attachHover(card, pts, coords, ex) {
+  const svg = card.querySelector('svg'), tip = card.querySelector('.tip'), xh = svg.querySelector('.xh');
+  let cur = -1;
+  const show = i => {
+    cur = i;
+    const [px, py] = coords[i], p = pts[i];
+    xh.setAttribute('x1', px); xh.setAttribute('x2', px); xh.style.opacity = 1;
+    const b = document.createElement('b'), s = document.createElement('span');
+    b.textContent = `${num1(p.v)} ${metricUnit(ex)}${p.pr ? ' 🏆' : ''}`;
+    s.textContent = `${fmtDate(p.date)} · ${setsText(ex, p.st.list)}`;
+    tip.replaceChildren(b, s);
+    tip.style.opacity = 1;
+    const r = svg.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    const left = r.left - cr.left + px / CW * r.width, top = r.top - cr.top + py / CH * r.height;
+    tip.style.left = Math.min(Math.max(4, left - tip.offsetWidth / 2), cr.width - tip.offsetWidth - 4) + 'px';
+    tip.style.top = (top - tip.offsetHeight - 12 < 0 ? top + 14 : top - tip.offsetHeight - 12) + 'px';
+  };
+  const hide = () => { cur = -1; xh.style.opacity = 0; tip.style.opacity = 0 };
+  svg.addEventListener('pointermove', e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * CW;
+    let bi = 0;
+    coords.forEach((c, i) => { if (Math.abs(c[0] - sx) < Math.abs(coords[bi][0] - sx)) bi = i });
+    if (bi !== cur) show(bi);
+  });
+  svg.addEventListener('pointerleave', hide);
+  svg.addEventListener('focus', () => show(pts.length - 1));
+  svg.addEventListener('blur', hide);
+  svg.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' && cur > 0) { e.preventDefault(); show(cur - 1) }
+    if (e.key === 'ArrowRight' && cur < pts.length - 1) { e.preventDefault(); show(cur + 1) }
+  });
+}
+
+function renderLifts() {
+  const from = liftRange ? ymd(addDays(new Date(), -liftRange)) : '';
+  const sessions = liftList().filter(l => l.date >= from);
+  const shown = settings.exercises.map(ex => ({ ex, all: seriesFor(ex) })).filter(o => o.ex.active || o.all.length);
+  $('#wk').textContent = 'Krachtprogressie';
+  $('#badges').innerHTML = `<span class="badge">${sessions.length} ${sessions.length === 1 ? 'sessie' : 'sessies'} ${liftRange ? 'in deze periode' : 'in totaal'}</span>`;
+  document.querySelectorAll('#liftMetric button').forEach(b => b.classList.toggle('on', b.dataset.v === liftMetric));
+  document.querySelectorAll('#liftRange button').forEach(b => b.classList.toggle('on', +b.dataset.v === liftRange));
+
+  let prs = 0, grew = 0, measured = 0;
+  const charts = [];
+  $('#liftGrid').innerHTML = shown.map(({ ex, all }, i) => {
+    const pts = all.filter(p => p.date >= from);
+    const head = `<h3>${esc(ex.name)} <span class="unit">· ${metricUnit(ex)}${ex.type === 'kg' && liftMetric !== 'vol' ? ' (per dumbbell)' : ''}</span></h3>`;
+    if (!pts.length) return `<div class="lcard">${head}<div class="lempty">Nog geen data${liftRange ? ' in deze periode' : ''}. Log je eerste sessie.</div></div>`;
+    prs += pts.filter(p => p.pr).length;
+    if (pts.length > 1) { measured++; if (pts[pts.length - 1].v > pts[0].v) grew++ }
+    const last = pts[pts.length - 1], prev = all[all.indexOf(last) - 1];
+    const best = Math.max(...all.map(p => p.v));
+    const { svg, coords } = chartSvg(pts, ex);
+    charts.push({ i, pts, coords, ex });
+    return `<div class="lcard" data-i="${i}">${head}
+      <div class="lnums">
+        <div><div class="big">${setText(ex, ex.type === 'reps' ? last.st.maxReps : last.st.top)}</div><div class="lab">${ex.type === 'reps' ? 'beste set' : 'zwaarste set'} laatste sessie · ${fmtDate(last.date)}</div></div>
+        <div><div class="big">${num1(best)}</div><div class="lab">record · ${metricUnit(ex)}</div></div>
+      </div>
+      <div>${deltaHtml(ex, prev && prev.st, last.st)}</div>
+      ${svg}<div class="tip" role="status"></div></div>`;
+  }).join('') || '<div class="lempty">Geen oefeningen actief. Kies "Oefeningen beheren".</div>';
+  charts.forEach(c => attachHover($(`#liftGrid .lcard[data-i="${c.i}"]`), c.pts, c.coords, c.ex));
+
+  const lastS = sessions[sessions.length - 1];
+  $('#liftStats').innerHTML = `
+    <div class="stat"><div class="l">Sessies</div><div class="v">${sessions.length}</div></div>
+    <div class="stat"><div class="l">Laatste sessie</div><div class="v">${lastS ? fmtDate(lastS.date) : '–'}</div></div>
+    <div class="stat"><div class="l">Nieuwe records</div><div class="v">${prs} <small>🏆</small></div></div>
+    <div class="stat"><div class="l">Oefeningen gegroeid</div><div class="v">${grew} <small>/ ${measured}</small></div><div class="bar"><i style="width:${measured ? grew / measured * 100 : 0}%"></i></div></div>`;
+
+  // Tabel: per sessie de beste set per oefening, nieuwste bovenaan
+  const prOf = (all, id) => all.some(p => p.id === id && p.pr);
+  $('#liftTable').innerHTML = sessions.length
+    ? `<thead><tr><th>Datum</th>${shown.map(({ ex }) => `<th>${esc(ex.name)}</th>`).join('')}<th>Notities</th></tr></thead><tbody>${[...sessions].reverse().map(l => `<tr data-id="${esc(l.id)}"><td>${fmtDate(l.date)}</td>${shown.map(({ ex, all }) => {
+        const st = exStats((l.sets || {})[ex.id]);
+        return `<td>${st ? esc(setText(ex, ex.type === 'reps' ? st.maxReps : st.top)) + ` <span class="hint">(${st.list.length} sets)</span>` + (prOf(all, l.id) ? ' 🏆' : '') : '<span class="hint">–</span>'}</td>`;
+      }).join('')}<td class="n">${esc(l.notes || '')}</td></tr>`).join('')}</tbody>`
+    : '<tbody><tr><td class="hint">Nog geen krachtsessies gelogd.</td></tr></tbody>';
+}
+
+const setInput = (ex, c, p, i) => `<span class="set">${i + 1}.
+  <input type="number" class="kg" step="0.5" min="0" value="${c && c.kg != null ? esc(c.kg) : ''}" placeholder="${p && p.kg != null ? esc(p.kg) : ex.type === 'reps' ? '+kg' : 'kg'}"> kg ×
+  <input type="number" class="reps" step="1" min="0" value="${c ? esc(c.reps) : ''}" placeholder="${p ? esc(p.reps) : 'herh.'}"></span>`;
+
+function openLift(id, date) {
+  const l = id ? lifts[id] : null;
+  const d = l ? l.date : date || ymd(new Date());
+  const exs = settings.exercises.filter(e => e.active || (l && l.sets && l.sets[e.id]));
+  const prevFor = ex => { const s = liftList().filter(x => x.id !== id && x.date <= d && ((x.sets || {})[ex.id] || []).length).pop(); return s ? s.sets[ex.id] : null };
+  liftEdit = { id: id || 'l' + Date.now(), prev: {} };
+  $('#liftBody').innerHTML = `
+    <h3>${l ? 'Krachtsessie aanpassen' : 'Krachtsessie loggen'}</h3>
+    <div class="form" style="border:0;margin:0;padding-top:8px">
+      <div class="row"><label style="max-width:200px">Datum<input type="date" id="lDate" value="${d}"></label></div>
+      <div class="hint">Kg = gewicht per dumbbell. Bij pull-ups en dips vul je alleen herhalingen in, en eventueel extra gewicht. Lege sets worden overgeslagen.</div>
+      ${exs.map(ex => {
+        const prev = prevFor(ex), cur = (l && l.sets && l.sets[ex.id]) || [];
+        liftEdit.prev[ex.id] = prev;
+        const n = Math.max(cur.length, prev ? prev.length : 0, 3);
+        return `<div class="lx" data-ex="${esc(ex.id)}">
+          <div class="lx-h"><b>${esc(ex.name)}</b><span class="hint">${prev ? `vorige keer: ${esc(setsText(ex, prev))}<button type="button" class="lcopy">Zelfde als vorige keer</button>` : 'nog geen eerdere sessie'}</span></div>
+          <div class="sets">${Array.from({ length: n }, (_, i) => setInput(ex, cur[i], prev && prev[i], i)).join('')}<button type="button" class="ladd">+ set</button></div>
+        </div>`;
+      }).join('')}
+      <label>Notities<textarea id="lNotes" placeholder="Hoe voelde het? Techniek, pijntjes, volgende keer zwaarder?">${esc(l ? l.notes : '')}</textarea></label>
+      <div class="actions">
+        <div>${l ? '<button type="button" id="lDel">Sessie verwijderen</button>' : ''}</div>
+        <div><button type="button" id="lCancel">Sluiten</button> <button type="button" class="primary" id="lSave">Opslaan</button></div>
+      </div>
+    </div>`;
+  $('#liftDlg').showModal();
+}
+$('#liftBody').addEventListener('click', e => {
+  const box = e.target.closest('.lx');
+  const ex = box && settings.exercises.find(x => x.id === box.dataset.ex);
+  if (e.target.classList.contains('ladd')) {
+    e.target.insertAdjacentHTML('beforebegin', setInput(ex, null, null, box.querySelectorAll('.set').length));
+  } else if (e.target.classList.contains('lcopy')) {
+    const prev = liftEdit.prev[ex.id];
+    while (box.querySelectorAll('.set').length < prev.length) box.querySelector('.ladd').insertAdjacentHTML('beforebegin', setInput(ex, null, null, box.querySelectorAll('.set').length));
+    box.querySelectorAll('.set').forEach((s, i) => {
+      s.querySelector('.kg').value = prev[i] && prev[i].kg != null ? prev[i].kg : '';
+      s.querySelector('.reps').value = prev[i] ? prev[i].reps : '';
+    });
+  } else if (e.target.id === 'lCancel') $('#liftDlg').close();
+  else if (e.target.id === 'lDel') {
+    if (!confirm('Deze krachtsessie verwijderen?')) return;
+    lifts[liftEdit.id] = { deleted: true, saved: new Date().toISOString() };
+    persist(); $('#liftDlg').close(); render();
+  } else if (e.target.id === 'lSave') {
+    const sets = {};
+    document.querySelectorAll('#liftBody .lx').forEach(b => {
+      const list = [...b.querySelectorAll('.set')].map(s => ({ kg: s.querySelector('.kg').value, reps: +s.querySelector('.reps').value || 0 }))
+        .filter(s => s.reps > 0).map(s => s.kg === '' ? { reps: s.reps } : { kg: +s.kg, reps: s.reps });
+      if (list.length) sets[b.dataset.ex] = list;
+    });
+    if (!Object.keys(sets).length) { alert('Vul minstens één set in (herhalingen).'); return }
+    lifts[liftEdit.id] = { date: $('#lDate').value || ymd(new Date()), sets, notes: $('#lNotes').value.trim() || undefined, saved: new Date().toISOString() };
+    persist(); $('#liftDlg').close(); render();
+  }
+});
+$('#liftTable').addEventListener('click', e => { const tr = e.target.closest('tbody tr[data-id]'); if (tr) openLift(tr.dataset.id) });
+$('#liftAdd').onclick = () => openLift(null);
+$('#liftMetric').onclick = e => { const v = e.target.dataset.v; if (v) { liftMetric = v; render() } };
+$('#liftRange').onclick = e => { const v = e.target.dataset.v; if (v != null) { liftRange = +v; render() } };
+
+const exRow = e => `<div class="ex-row" data-id="${esc(e.id)}">
+  <input class="en" value="${esc(e.name)}" placeholder="Naam oefening">
+  <select class="et"><option value="kg"${e.type === 'kg' ? ' selected' : ''}>kg (gewicht)</option><option value="reps"${e.type === 'reps' ? ' selected' : ''}>herhalingen</option></select>
+  <label><input type="checkbox" class="ea"${e.active ? ' checked' : ''}> actief</label>
+  <button type="button" class="ex-x" title="Verwijderen">✕</button></div>`;
+$('#liftExBtn').onclick = () => { $('#exRows').innerHTML = settings.exercises.map(exRow).join(''); $('#exDlg').showModal() };
+$('#exAdd').onclick = () => $('#exRows').insertAdjacentHTML('beforeend', exRow({ id: 'x' + Date.now(), name: '', type: 'kg', active: true }));
+$('#exRows').onclick = e => {
+  if (!e.target.classList.contains('ex-x')) return;
+  const row = e.target.closest('.ex-row');
+  const used = liftList().some(l => (l.sets || {})[row.dataset.id]);
+  if (!used || confirm('Deze oefening heeft al gelogde sets. Verwijderen? Tip: zet hem liever op niet-actief, dan blijft de historie zichtbaar.')) row.remove();
+};
+$('#exClose').onclick = () => $('#exDlg').close();
+$('#exSave').onclick = () => {
+  settings.exercises = [...document.querySelectorAll('#exRows .ex-row')]
+    .map(r => ({ id: r.dataset.id, name: r.querySelector('.en').value.trim(), type: r.querySelector('.et').value, active: r.querySelector('.ea').checked }))
+    .filter(x => x.name);
+  settings.savedAt = new Date().toISOString();
+  persist(); $('#exDlg').close(); render();
+};
+
+function showTab(t) {
+  tab = t;
+  try { history.replaceState(null, '', t === 'kracht' ? '#kracht' : location.pathname + location.search) } catch { }
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $('#weekView').hidden = $('#weekNav').hidden = t !== 'week';
+  $('#liftView').hidden = $('#liftNav').hidden = t !== 'kracht';
+  render();
+}
+$('#tabs').onclick = e => { const t = e.target.closest('button')?.dataset.tab; if (t) showTab(t) };
+
+document.addEventListener('click', e => {
+  const tw = e.target.closest('.tw');
+  if (tw) { viewMon = parseYmd(tw.dataset.mon); render(); return }
+  const el = e.target.closest('.card, .upitem');
+  if (el) openSession(el.dataset.date, el.dataset.id);
+});
+$('#prev').onclick = () => { viewMon = addDays(viewMon, -7); render() };
+$('#next').onclick = () => { viewMon = addDays(viewMon, 7); render() };
+$('#now').onclick = () => { viewMon = monday(new Date()); render() };
+
+$('#openSet').onclick = () => {
+  $('#sFtp').value = settings.ftp || '';
+  $('#sSpeed').value = settings.bikeSpeed || '';
+  $('#sStart').value = settings.blockStart;
+  $('#sDrempel').value = settings.drempelStart;
+  $('#sSnelheid').value = settings.snelheidStart;
+  $('#sRaces').innerHTML = settings.races.map(raceRow).join('');
+  renderStorage();
+  $('#setDlg').showModal();
+};
+$('#storage').onclick = () => syncState === 'error' ? syncGist() : $('#openSet').click();
+$('#sGistOn').onclick = () => {
+  const t = $('#sToken').value.trim();
+  if (t) { $('#sToken').value = ''; connectGist(t) }
+};
+$('#sGistSync').onclick = () => syncGist();
+$('#sGistOff').onclick = () => {
+  if (confirm('GitHub ontkoppelen in deze browser? Je gegevens blijven in deze browser en in de Gist staan.')) disconnectGist();
+};
+// Wijzigingen van het andere apparaat ophalen zodra je terugkomt in dit tabblad
+const pullSoon = () => { if (gist.id && !document.hidden && (!lastSync || Date.now() - lastSync > 15000)) syncGist() };
+window.addEventListener('focus', pullSoon);
+document.addEventListener('visibilitychange', pullSoon);
+$('#sRaces').onclick = e => { if (e.target.classList.contains('rx')) e.target.closest('.race-row').remove() };
+$('#sAddRace').onclick = () => $('#sRaces').insertAdjacentHTML('beforeend', raceRow({ id: 'r' + Date.now(), name: '', date: '', km: '', target: '' }));
+$('#sClose').onclick = () => $('#setDlg').close();
+$('#sSave').onclick = () => {
+  settings.ftp = +$('#sFtp').value || undefined;
+  settings.bikeSpeed = +$('#sSpeed').value || undefined;
+  const toMon = id => $(id).value ? ymd(monday(parseYmd($(id).value))) : null;
+  settings.blockStart = toMon('#sStart') || settings.blockStart;
+  settings.drempelStart = toMon('#sDrempel') || settings.drempelStart;
+  settings.snelheidStart = toMon('#sSnelheid') || settings.snelheidStart;
+  settings.races = [...document.querySelectorAll('#sRaces .race-row')]
+    .map(row => ({ id: row.dataset.id, name: row.querySelector('.rn').value.trim() || 'Wedstrijd', date: row.querySelector('.rd').value,
+      km: +row.querySelector('.rk').value || 10, target: row.querySelector('.rt').value.trim(), main: row.querySelector('.rm').checked || undefined }))
+    .filter(r => r.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  settings.savedAt = new Date().toISOString();
+  persist(); $('#setDlg').close(); render();
+};
+$('#sExport').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([gistBody()], { type: 'application/json' }));
+  a.download = `trainingslog-${ymd(new Date())}.json`;
+  a.click();
+};
+$('#sImportBtn').onclick = () => $('#sImport').click();
+$('#sImport').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (data.logs) logs = data.logs;
+    if (data.lifts) lifts = data.lifts;
+    if (data.moves) moves = data.moves;
+    if (data.settings) settings = { ...settings, ...data.settings, savedAt: new Date().toISOString() };
+    persist(); $('#setDlg').close(); render();
+  } catch { alert('Kon dit bestand niet lezen.') }
+  e.target.value = '';
+};
+$('#sReset').onclick = () => { if (confirm('Alle gelogde trainingen wissen?')) { Object.keys(logs).forEach(tombstone); persist(); render() } };
+
+showTab(tab);
+renderStorage();
+syncGist();
+</script>
+</body>
+</html>

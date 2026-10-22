@@ -404,7 +404,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22d';
+const APP_VERSION = '2026-10-22e';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -666,7 +666,7 @@ function longRun(c) {
   let km, desc, how;
   if (c.phase === 'marathon' || c.phase === 'taper') [km, desc, how] = MARATHON_LR[c.wtr];
   else if (c.phase === 'basis') {
-    // Start op 16 km: de Garmin-historie toont ~22 km/week en een langste loop van 17 km
+    // Start op 16 km: in sep 2026 ~50 km/week (langste 19,6), in okt teruggevallen naar ~25 en knie onrustig
     const b = Math.min(16 + 2 * c.cycle, 24);
     [km, desc, how] = [
       [b, `${b} km rustig`, `Alles @ ${P.easy}.`],
@@ -748,9 +748,9 @@ function plan(c) {
   const ftpTest = settings.ftpTestDate && ymd(addDays(c.mon, 3)) === settings.ftpTestDate;
   w[3].push(ftpTest
     ? { id: 'do-terug', sport: 'bike', title: 'Terug · FTP-test 20 min', km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · 20 min zo hard als je gelijkmatig volhoudt`,
-        details: ['Waarom: je Garmin rekent met een FTP van ~277 W (afgeleid uit de TSS van je rit van 22 okt), het dashboard met 310 W. Een test maakt al je zones betrouwbaar.',
+        details: ['Waarom: je beste 20 min van de afgelopen 12 maanden was 291 W (feb 2026) en Garmin rekent met ~277 W, het dashboard met 310 W. Een test maakt al je zones betrouwbaar.',
           '15 min inrijden in Z2, daarna 3 × 1 min snel (100+ rpm) met 1 min rustig, dan 5 min Z2.',
-          '20 min all-out maar gelijkmatig: begin rond 280 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
+          '20 min all-out maar gelijkmatig: begin rond 270 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
           'Rest van de rit rustig uitrijden.',
           'Vul bij "Gem./NP" het gemiddelde vermogen van die 20 min in (staat in Garmin als ronde of als "max. gemiddeld vermogen 20 min"). Je FTP is ≈ 95% daarvan: pas hem aan onder ⚙ Instellingen.'] }
     : sweet

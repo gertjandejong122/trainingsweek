@@ -393,7 +393,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22';
+const APP_VERSION = '2026-10-22b';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -516,8 +516,12 @@ function commute(id, title, easy, extra = []) {
   return { id, sport: 'bike', title, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
     details: ['Eerste 10 min rustig inrijden.', 'Cadans 85–95 rpm.', 'Echt in de zone blijven: dit is aerobe basis, geen race.', 'Wind tegen? Accepteer een lagere snelheid, geen hogere watts.', ...extra] };
 }
+// Geschatte afstand voor het vooringevulde feedbackveld (afgerond op 0,5 km)
+const halfKm = x => Math.round(x * 2) / 2;
+const EASY_MIN_PER_KM = 4.85, REC_MIN_PER_KM = 5.15;
 function easyRun(id, title, dur, opts = {}) {
   return { id, sport: 'run', title, dur, optional: opts.optional,
+    km: halfKm(dur / (opts.pace === P.rec ? REC_MIN_PER_KM : EASY_MIN_PER_KM)),
     summary: `${dur} min @ ${opts.pace || P.easy}${opts.strides ? ' + 6 × 20 s strides' : ''}`,
     details: [`${dur} min @ ${opts.pace || P.easy}, op gesprekstempo.`, opts.strides ? `Daarna 6 × 20 s strides @ ${P.strides}, met volledig herstel.` : null, ...(opts.extra || [])].filter(Boolean) };
 }
@@ -600,8 +604,12 @@ function quality(c) {
   else if (c.deload) [set, dur, key, rest] = c.phase === 'basis' ? ['4 × 1600 m', 55, 'T', '90 s dribbelen'] : ['4 × 1 km', 50, 'T', '90 s dribbelen'];
   else { const q = Q[c.phase], s = q.sets[c.bw - 1]; [set, dur, key, rest] = [s[0], s[1], s[2] || q.key, s[3] || q.rest] }
   const [pl, pv] = PACE[key];
+  // Afstand: herhalingen op tempo + de rest van de tijd (in-/uitlopen, dribbelpauzes) op ~5:30/km
+  const [n, len, unit] = (set.match(/(\d+) × ([\d.]+) (k?m)/) || [0, 0, 0, 'km']).slice(1);
+  const workKm = +n * +len / (unit === 'm' ? 1000 : 1);
+  const workMin = workKm * { I: 3.45, T: 3.75, M: 4.17, R: 3.25 }[key];
   return {
-    id: 'di-iv', sport: 'run', dur,
+    id: 'di-iv', sport: 'run', dur, km: halfKm(workKm + Math.max(0, dur - workMin) / 5.5),
     title: (c.tuneup ? 'Scherp houden · ' : key === 'I' || key === 'R' ? 'Intervallen · ' : 'Tempo · ') + set,
     summary: `@ ${pl} ${pv}, ${rest}`,
     details: [
@@ -660,7 +668,7 @@ function longRun(c) {
   } else if (c.phase === 'herstel') return easyRun('za-lr', 'Rustige loop', 40, { optional: true, pace: P.rec });
   else return null;
   return {
-    id: 'za-lr', sport: 'run', title: `Lange duurloop · ${km} km`, dur: runDur(km), summary: desc,
+    id: 'za-lr', sport: 'run', title: `Lange duurloop · ${km} km`, km, dur: runDur(km), summary: desc,
     details: [how,
       c.phase === 'marathon' || c.phase === 'taper' ? 'Oefen je racevoeding: 60–90 g koolhydraten per uur, elke 25–30 min een gel.' : 'Duurt het langer dan 90 min? Neem gels of sportdrank mee (30–60 g koolhydraten per uur).',
       'Kies een vlak parcours voor de stukken op tempo.']
@@ -674,7 +682,7 @@ function raceSession(r) {
     : km >= 20
       ? ['15 min inlopen + 4 versnellingen.', 'Eerste 3 km gecontroleerd, dan op schema. Vanaf 15 km alles geven.', '1 gel na ongeveer 45 min.', 'Dit is een ijkpunt: je tijd bepaalt je doeltempo voor Berlijn.']
       : ['20 min inlopen + 4–6 versnellingen.', 'Eerste km niet te snel: 2–3 s/km boven doeltempo.', 'Halverwege beoordelen; de laatste 2–3 km alles geven.'];
-  return { id: 'race-' + r.id, sport: 'run', race: true, title: `🏁 ${r.name}`, dur: Math.round(km * 4.1) + 20,
+  return { id: 'race-' + r.id, sport: 'run', race: true, title: `🏁 ${r.name}`, km, dur: Math.round(km * 4.1) + 20,
     summary: `${String(km).replace('.', ',')} km${r.target ? ` · doel ${r.target}` : ''}`, details: tips };
 }
 
@@ -740,7 +748,7 @@ function plan(c) {
     const ri = weekday(r.date);
     w[ri] = [raceSession(r)];
     if (ri > 0) w[ri - 1] = [...w[ri - 1].filter(s => s.sport === 'bike' || s.sport === 'mobility'),
-      { id: 'shake', sport: 'run', title: 'Shake-out', dur: 20, summary: '20 min heel rustig + 4 strides', details: ['20 min heel rustig, daarna 4 × 15 s versnellingen.', 'Koolhydraten aanvullen, vroeg naar bed.'] }];
+      { id: 'shake', sport: 'run', title: 'Shake-out', km: 4, dur: 20, summary: '20 min heel rustig + 4 strides', details: ['20 min heel rustig, daarna 4 × 15 s versnellingen.', 'Koolhydraten aanvullen, vroeg naar bed.'] }];
     if (ri > 1) w[ri - 2] = w[ri - 2].filter(s => s.sport !== 'strength');
     if (ri < 6) w[ri + 1] = w[ri + 1].filter(s => s.sport === 'bike' || s.sport === 'mobility');
   }
@@ -930,8 +938,8 @@ function openSession(date, id) {
       <label>Zwaarte (RPE 1–10): <b id="rpeV"></b><input type="range" id="fRpe" min="1" max="10" step="1" value="${lg.rpe || 6}"></label>
       <div class="lbl">Gevoel<div class="seg feel" id="fFeel">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}">${FEEL[n]}</button>`).join('')}</div></div>
       <div class="row">
-        <label>Duur (min)<input type="number" id="fDur" min="0" value="${esc(lg.duration)}" placeholder="${s.dur}"></label>
-        ${hasDist ? `<label>Afstand (km)<input type="number" step="0.1" min="0" id="fDist" value="${esc(lg.distance ?? (s.sport === 'bike' ? s.km : ''))}"></label>` : ''}
+        <label>Duur (min)<input type="number" id="fDur" min="0" value="${esc(lg.duration ?? s.dur)}"></label>
+        ${hasDist ? `<label>Afstand (km)<input type="number" step="0.1" min="0" id="fDist" value="${esc(lg.distance ?? s.km)}"></label>` : ''}
         ${s.sport === 'bike' ? `<label>Gem./NP (W)<input type="number" min="0" id="fPow" value="${esc(lg.power)}"></label>` : ''}
         ${hasDist ? `<label>Gem. hartslag<input type="number" min="0" id="fHr" value="${esc(lg.hr)}"></label>` : ''}
       </div>

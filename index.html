@@ -253,6 +253,7 @@ textarea{min-height:80px;resize:vertical}
       <label>Start drempelfase<input type="date" id="sDrempel"></label>
       <label>Start snelheidsfase<input type="date" id="sSnelheid"></label>
       <label>Knie-protocol tot (leeg = uit)<input type="date" id="sKnee"></label>
+      <label>FTP-test op (donderdag, leeg = geen)<input type="date" id="sFtpTest"></label>
     </div>
     <div class="hint">Het marathonblok start automatisch 16 weken voor je hoofddoel. De laatste 2 weken zijn taper. Tot het marathonblok loopt het schema in blokken van 4 weken (3 opbouw + 1 herstel).</div>
     <div class="lbl">Wedstrijden <span class="hint">De data zijn schattingen, controleer ze op de sites van de organisaties.</span></div>
@@ -324,10 +325,11 @@ const DEFAULT_EXERCISES = [
   { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true },
   { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true }
 ];
-const EXERCISES_VERSION = 3;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'] };
+const EXERCISES_VERSION = 4;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
+  // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
   if (!settings.exercises) { settings.exercises = DEFAULT_EXERCISES; settings.exV = EXERCISES_VERSION; return }
   const from = settings.exV || 1;
   if (from >= EXERCISES_VERSION) return;
@@ -336,12 +338,15 @@ function migrateSettings() {
   settings.exercises = [...settings.exercises, ...DEFAULT_EXERCISES.filter(e => add.includes(e.id) && !have.has(e.id))];
   // v3: knie-protocol (verschuif-gevoel rechterknie bij Bulgarian split squat, 21-10-2026)
   if (from < 3 && settings.kneeUntil === undefined) settings.kneeUntil = '2026-11-16';
+  // v4: FTP-test na analyse Garmin-historie (TSS wijst op FTP ~277 W, dashboard staat op 310 W)
+  if (from < 4 && settings.ftpTestDate === undefined) settings.ftpTestDate = '2026-10-29';
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
 
 // Looptempo's op basis van 4 mijl in 22:50 (VDOT ≈ 57), M-tempo iets conservatiever
-const P = { easy: '4:35–5:05/km', rec: '5:00–5:20/km', m: '4:05–4:15/km', hm: '3:50–3:55/km', t: '3:42–3:48/km', i: '3:24–3:30/km', r: '3:15/km (78 s per 400 m)', strides: '~3:10/km' };
+// Rustig en herstel iets langzamer na Garmin-analyse (22-10-2026): rustige lopen zaten op 4:30–4:45/km bij HS ~155
+const P = { easy: '4:45–5:15/km', rec: '5:10–5:30/km', m: '4:05–4:15/km', hm: '3:50–3:55/km', t: '3:42–3:48/km', i: '3:24–3:30/km', r: '3:15/km (78 s per 400 m)', strides: '~3:10/km' };
 const PACE = { I: ['I-tempo', P.i], T: ['T-tempo', P.t], R: ['R-tempo', P.r], M: ['M-tempo', P.m] };
 
 const $ = s => document.querySelector(s);
@@ -399,7 +404,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22c';
+const APP_VERSION = '2026-10-22d';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -511,7 +516,7 @@ function context(mon) {
   const tuneup = races.find(r => !r.main);
   const deload = bw === 4 && ['basis', 'drempel', 'snelheid', 'marathon'].includes(phase);
   const knee = !!settings.kneeUntil && ymd(mon) < settings.kneeUntil;
-  return { phase, bw, wtr, races, tuneup, postRace, deload, knee, cycle: Math.max(0, Math.floor(sinceStart / 4)) };
+  return { mon, phase, bw, wtr, races, tuneup, postRace, deload, knee, cycle: Math.max(0, Math.floor(sinceStart / 4)) };
 }
 
 function mobility(id, title = 'Mobiliteit', dur = 10) {
@@ -525,12 +530,12 @@ function commute(id, title, easy, extra = []) {
 }
 // Geschatte afstand voor het vooringevulde feedbackveld (afgerond op 0,5 km)
 const halfKm = x => Math.round(x * 2) / 2;
-const EASY_MIN_PER_KM = 4.85, REC_MIN_PER_KM = 5.15;
+const EASY_MIN_PER_KM = 5.0, REC_MIN_PER_KM = 5.33;
 function easyRun(id, title, dur, opts = {}) {
   return { id, sport: 'run', title, dur, optional: opts.optional,
     km: halfKm(dur / (opts.pace === P.rec ? REC_MIN_PER_KM : EASY_MIN_PER_KM)),
     summary: `${dur} min @ ${opts.pace || P.easy}${opts.strides ? ' + 6 × 20 s strides' : ''}`,
-    details: [`${dur} min @ ${opts.pace || P.easy}, op gesprekstempo.`, opts.strides ? `Daarna 6 × 20 s strides @ ${P.strides}, met volledig herstel.` : null, ...(opts.extra || [])].filter(Boolean) };
+    details: [`${dur} min @ ${opts.pace || P.easy}, op gesprekstempo. Hartslag liefst onder ~145, het tempo is daaraan ondergeschikt.`, opts.strides ? `Daarna 6 × 20 s strides @ ${P.strides}, met volledig herstel.` : null, ...(opts.extra || [])].filter(Boolean) };
 }
 
 const PROGRESSIE = 'Progressie: haal je bij alle sets de bovenkant van de herhalingsrange, ga dan de volgende keer 1–2 kg zwaarder. Zit je op het zwaarste dumbbellgewicht? Maak het zwaarder met 3 s zakken of 1 s pauze onderin.';
@@ -661,7 +666,8 @@ function longRun(c) {
   let km, desc, how;
   if (c.phase === 'marathon' || c.phase === 'taper') [km, desc, how] = MARATHON_LR[c.wtr];
   else if (c.phase === 'basis') {
-    const b = Math.min(18 + 2 * c.cycle, 24);
+    // Start op 16 km: de Garmin-historie toont ~22 km/week en een langste loop van 17 km
+    const b = Math.min(16 + 2 * c.cycle, 24);
     [km, desc, how] = [
       [b, `${b} km rustig`, `Alles @ ${P.easy}.`],
       [b + 2, `${b + 2} km, laatste 4 km @ M-tempo`, `${b - 2} km @ ${P.easy}, dan 4 km @ ${P.m}.`],
@@ -729,15 +735,25 @@ function plan(c) {
   else if (phase === 'taper' && wtr === 2) w[1].push(strengthA(2, 'licht', c.knee));
 
   // Woensdag
-  const ez = mar ? [65, 70, 75, 50][bw - 1] : phase === 'taper' ? (wtr === 2 ? 50 : 40) : phase === 'race' ? 30 : [50, 55, 60, 40][bw - 1];
-  w[2].push(easyRun('wo-ez', 'Rustige duurloop', ez, { strides: phase !== 'race', extra: ['Zware benen van de kracht van dinsdag? Loop dan gerust 5:10/km.'] }));
+  // Eerste basisblok korter: loopvolume geleidelijk opbouwen vanaf ~22 km/week
+  const ez = mar ? [65, 70, 75, 50][bw - 1] : phase === 'taper' ? (wtr === 2 ? 50 : 40) : phase === 'race' ? 30
+    : phase === 'basis' && c.cycle === 0 ? [40, 45, 50, 35][bw - 1] : [50, 55, 60, 40][bw - 1];
+  w[2].push(easyRun('wo-ez', 'Rustige duurloop', ez, { strides: phase !== 'race', extra: ['Zware benen van de kracht van dinsdag? Loop dan gerust 5:20/km.'] }));
 
   // Donderdag
   const sweet = pre && !deload && !c.tuneup && !c.postRace;
   const ss = [['3 × 10 min', 88], ['3 × 12 min', 90], ['2 × 20 min', 92]][bw - 1];
   const thuNote = phase === 'race' ? ['Raceweek: liever met de trein of auto? Prima, sla de ritten dan over.'] : [];
   w[3].push(commute('do-heen', 'Woon-werk heen', phase === 'race', ['Rustig rijden, spaar je voor de rit terug.', ...thuNote]));
-  w[3].push(sweet
+  const ftpTest = settings.ftpTestDate && ymd(addDays(c.mon, 3)) === settings.ftpTestDate;
+  w[3].push(ftpTest
+    ? { id: 'do-terug', sport: 'bike', title: 'Terug · FTP-test 20 min', km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · 20 min zo hard als je gelijkmatig volhoudt`,
+        details: ['Waarom: je Garmin rekent met een FTP van ~277 W (afgeleid uit de TSS van je rit van 22 okt), het dashboard met 310 W. Een test maakt al je zones betrouwbaar.',
+          '15 min inrijden in Z2, daarna 3 × 1 min snel (100+ rpm) met 1 min rustig, dan 5 min Z2.',
+          '20 min all-out maar gelijkmatig: begin rond 280 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
+          'Rest van de rit rustig uitrijden.',
+          'Vul bij "Gem./NP" het gemiddelde vermogen van die 20 min in (staat in Garmin als ronde of als "max. gemiddeld vermogen 20 min"). Je FTP is ≈ 95% daarvan: pas hem aan onder ⚙ Instellingen.'] }
+    : sweet
     ? { id: 'do-terug', sport: 'bike', title: `Terug · sweet spot ${ss[0]}`, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
         details: ['15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', 'Rest van de rit in Z1–Z2.'] }
     : commute('do-terug', 'Woon-werk terug', phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote]));
@@ -1313,6 +1329,7 @@ $('#openSet').onclick = () => {
   $('#sDrempel').value = settings.drempelStart;
   $('#sSnelheid').value = settings.snelheidStart;
   $('#sKnee').value = settings.kneeUntil || '';
+  $('#sFtpTest').value = settings.ftpTestDate || '';
   $('#sRaces').innerHTML = settings.races.map(raceRow).join('');
   renderStorage();
   $('#setDlg').showModal();
@@ -1341,6 +1358,7 @@ $('#sSave').onclick = () => {
   settings.drempelStart = toMon('#sDrempel') || settings.drempelStart;
   settings.snelheidStart = toMon('#sSnelheid') || settings.snelheidStart;
   settings.kneeUntil = $('#sKnee').value || '';
+  settings.ftpTestDate = $('#sFtpTest').value || '';
   settings.races = [...document.querySelectorAll('#sRaces .race-row')]
     .map(row => ({ id: row.dataset.id, name: row.querySelector('.rn').value.trim() || 'Wedstrijd', date: row.querySelector('.rd').value,
       km: +row.querySelector('.rk').value || 10, target: row.querySelector('.rt').value.trim(), main: row.querySelector('.rm').checked || undefined }))

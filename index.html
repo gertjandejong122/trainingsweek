@@ -252,6 +252,7 @@ textarea{min-height:80px;resize:vertical}
     <div class="row">
       <label>Start drempelfase<input type="date" id="sDrempel"></label>
       <label>Start snelheidsfase<input type="date" id="sSnelheid"></label>
+      <label>Knie-protocol tot (leeg = uit)<input type="date" id="sKnee"></label>
     </div>
     <div class="hint">Het marathonblok start automatisch 16 weken voor je hoofddoel. De laatste 2 weken zijn taper. Tot het marathonblok loopt het schema in blokken van 4 weken (3 opbouw + 1 herstel).</div>
     <div class="lbl">Wedstrijden <span class="hint">De data zijn schattingen, controleer ze op de sites van de organisaties.</span></div>
@@ -320,16 +321,21 @@ const DEFAULT_EXERCISES = [
   { id: 'dip', name: 'Tricep dips', type: 'reps', active: true },
   { id: 'bss', name: 'Bulgarian split squat', type: 'kg', active: true },
   { id: 'rdl', name: 'Romanian deadlift', type: 'kg', active: true },
-  { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true }
+  { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true },
+  { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true }
 ];
-const EXERCISES_VERSION = 2;
+const EXERCISES_VERSION = 3;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   if (!settings.exercises) { settings.exercises = DEFAULT_EXERCISES; settings.exV = EXERCISES_VERSION; return }
-  if ((settings.exV || 1) >= EXERCISES_VERSION) return;
+  const from = settings.exV || 1;
+  if (from >= EXERCISES_VERSION) return;
   const have = new Set(settings.exercises.map(e => e.id));
-  const newInV2 = ['bss', 'rdl', 'calf']; // eerder verwijderde oefeningen niet terugzetten
-  settings.exercises = [...settings.exercises, ...DEFAULT_EXERCISES.filter(e => newInV2.includes(e.id) && !have.has(e.id))];
+  const add = Object.entries(NEW_EXERCISES).filter(([v]) => +v > from).flatMap(([, ids]) => ids); // eerder verwijderde oefeningen niet terugzetten
+  settings.exercises = [...settings.exercises, ...DEFAULT_EXERCISES.filter(e => add.includes(e.id) && !have.has(e.id))];
+  // v3: knie-protocol (verschuif-gevoel rechterknie bij Bulgarian split squat, 21-10-2026)
+  if (from < 3 && settings.kneeUntil === undefined) settings.kneeUntil = '2026-11-16';
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
@@ -393,7 +399,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22b';
+const APP_VERSION = '2026-10-22c';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -504,7 +510,8 @@ function context(mon) {
   const postRace = settings.races.some(r => !r.main && r.km >= 15 && +monday(parseYmd(r.date)) === +prevMon);
   const tuneup = races.find(r => !r.main);
   const deload = bw === 4 && ['basis', 'drempel', 'snelheid', 'marathon'].includes(phase);
-  return { phase, bw, wtr, races, tuneup, postRace, deload, cycle: Math.max(0, Math.floor(sinceStart / 4)) };
+  const knee = !!settings.kneeUntil && ymd(mon) < settings.kneeUntil;
+  return { phase, bw, wtr, races, tuneup, postRace, deload, knee, cycle: Math.max(0, Math.floor(sinceStart / 4)) };
 }
 
 function mobility(id, title = 'Mobiliteit', dur = 10) {
@@ -528,9 +535,14 @@ function easyRun(id, title, dur, opts = {}) {
 
 const PROGRESSIE = 'Progressie: haal je bij alle sets de bovenkant van de herhalingsrange, ga dan de volgende keer 1–2 kg zwaarder. Zit je op het zwaarste dumbbellgewicht? Maak het zwaarder met 3 s zakken of 1 s pauze onderin.';
 
+// Knie-protocol: tijdelijk knievriendelijke varianten + stabiliteitsblok voor heup en knie
+const KNEE_PREHAB = 'Knie-stabiliteit (6–8 min, vóór de benen): eenbenige glute bridge 2 × 12 per been · zijlig heupabductie 2 × 15 per been (langzaam, teen iets omlaag) · lateral step-down van een traptrede 2 × 8 per been, 3 s zakken, knie boven je 2e teen · wall sit 2 × 45 s.';
+const KNEE_CHECK = 'Knie-check: is het verschuif-gevoel er na 3–4 weken nog, of krijg je pijn, zwelling of het gevoel dat de knie wegzakt? Laat hem dan nakijken door een sportfysio.';
+const kneeLunge = sets => `Reverse lunge (tijdelijk in plaats van de Bulgarian split squat): ${sets} × 8 per been, 2 × 16–20 kg, 3 s zakken. Romp licht voorover, voorste knie boven je 2e teen. Zak alleen zo diep als zonder verschuif-gevoel gaat.`;
+
 // Full body, nadruk onderlijf: zware benen op de harde dinsdag, zodat woensdag herstel is.
 // Modes: 'zwaar' (opbouw), 'onderhoud' (marathonblok), 'licht' (laatste 8 weken / taper).
-function strengthA(sets, mode) {
+function strengthA(sets, mode, knee) {
   if (mode !== 'zwaar') {
     const light = mode === 'licht';
     return {
@@ -539,38 +551,42 @@ function strengthA(sets, mode) {
       summary: `${sets} sets · benen zwaar maar weinig, bovenlijf kort`,
       details: [
         'Warming-up 5 min: 10 lichte goblet squats, 10 hip hinges, 10 lunges.',
+        knee ? KNEE_PREHAB : null,
         `Plyometrie: pogo jumps ${light ? 2 : 3} × 15${light ? '' : ', box jumps 2 × 5'}. Kort en snappy.`,
-        `Bulgarian split squat: ${sets} × ${light ? 6 : 5} per been, ${light ? '2 × 16–20 kg' : 'zwaar, 2 × 25–30 kg'}.`,
+        knee ? kneeLunge(sets) : `Bulgarian split squat: ${sets} × ${light ? 6 : 5} per been, ${light ? '2 × 16–20 kg' : 'zwaar, 2 × 25–30 kg'}.`,
         `Romanian deadlift: ${sets} × 6, ${light ? '2 × 20 kg' : '2 × 30 kg'}.`,
         `Eenbenige kuitheffing: ${sets} × 12 per been met DB, de helft met gebogen knie.`,
         `Pull-ups: ${sets} × max − 2.`,
         `Bench press óf shoulder press (wissel per week): ${sets} × 8.`,
         'Side plank: 2 × 30 s per kant.',
         light ? 'Licht: ongeveer 60% van je normale gewicht. Alleen techniek en prikkel, geen spierpijn.'
-          : 'Onderhoud: zelfde gewicht als eind basisfase, minder sets. Doel is kracht vasthouden, niet opbouwen (RIR 2–3).'
-      ]
+          : 'Onderhoud: zelfde gewicht als eind basisfase, minder sets. Doel is kracht vasthouden, niet opbouwen (RIR 2–3).',
+        knee ? KNEE_CHECK : null
+      ].filter(Boolean)
     };
   }
   return {
     id: 'krachtA', sport: 'strength', dur: sets === 2 ? 35 : 50,
     title: 'Kracht A · nadruk onderlijf',
-    summary: `${sets} sets · plyometrie + zware benen + pull-ups`,
+    summary: `${sets} sets · ${knee ? 'knie-stabiliteit + ' : ''}plyometrie + zware benen + pull-ups`,
     details: [
       'Warming-up 5 min: 10 lichte goblet squats, 10 hip hinges, 10 lunges, 20 s plank.',
-      `Plyometrie (eerst, nu je nog fris bent): pogo jumps ${sets} × 15, box jumps op kniehoogte ${sets} × 5 (stap naar beneden), eenbenige hops 2 × 10 per been. Volledig herstel, maximale veerkracht.`,
-      `Bulgarian split squat: ${sets} × 6–8 per been, 2 × 25–30 kg, 2 min rust.`,
+      knee ? KNEE_PREHAB : null,
+      `Plyometrie (eerst, nu je nog fris bent): pogo jumps ${sets} × 15, box jumps op kniehoogte ${sets} × 5 (stap naar beneden), ${knee ? 'geen eenbenige hops zolang het knie-protocol loopt' : 'eenbenige hops 2 × 10 per been'}. Volledig herstel, maximale veerkracht.`,
+      knee ? kneeLunge(sets) : `Bulgarian split squat: ${sets} × 6–8 per been, 2 × 25–30 kg, 2 min rust.`,
       `Romanian deadlift: ${sets} × 6–8, 2 × 30 kg, 3 s zakken.`,
       `Eenbenige kuitheffing: ${sets} × 10–12 per been met DB 30 kg, de helft met gebogen knie (soleus).`,
       `Pull-ups: ${sets} × max − 2 (stop 2 herhalingen voor falen).`,
       `Copenhagen plank: ${sets} × 20 s per kant.`,
       `Dead bug: ${sets} × 10 per kant.`,
       'Benen: houd 1–2 herhalingen over (RIR 1–2). Doe dit direct na de looptraining of minstens 6 uur later.',
-      PROGRESSIE
-    ]
+      PROGRESSIE,
+      knee ? KNEE_CHECK : null
+    ].filter(Boolean)
   };
 }
 // Full body, nadruk bovenlijf. Benen licht en explosief: zaterdag is de lange duurloop.
-function strengthB(sets) {
+function strengthB(sets, knee) {
   return {
     id: 'krachtB', sport: 'strength', title: 'Kracht B · nadruk bovenlijf', dur: sets === 2 ? 35 : 45,
     summary: `${sets} sets · press, pull-ups, dips + lichte benen`,
@@ -583,7 +599,8 @@ function strengthB(sets) {
       `Eenarmig roeien: ${sets} × 10 per arm, DB 30 kg (balans met al het drukken).`,
       `Tricep dips: ${sets} × max − 2.`,
       `Lateral raise: ${sets - 1} × 12–15, licht (6–10 kg), gecontroleerd.`,
-      'Step-up (kniehoogte): 2 × 8 per been, licht en snel omhoog. Geen spierpijn voor zaterdag.',
+      knee ? 'Knie-stabiliteit (in plaats van step-ups): eenbenige glute bridge 2 × 12 · zijlig heupabductie 2 × 15 · lateral step-down 2 × 8 per been, 3 s zakken.'
+        : 'Step-up (kniehoogte): 2 × 8 per been, licht en snel omhoog. Geen spierpijn voor zaterdag.',
       'Side plank: 2 × 30 s per kant.',
       PROGRESSIE
     ]
@@ -707,9 +724,9 @@ function plan(c) {
 
   // Dinsdag
   w[1].push(c.postRace ? easyRun('di-iv', 'Herstelloop na wedstrijd', 40, { pace: P.rec, extra: ['Benen nog moe van de wedstrijd: echt rustig, intervallen deze week overslaan.'] }) : quality(c));
-  if (pre) w[1].push(strengthA(deload || c.tuneup || c.postRace ? 2 : 3, 'zwaar'));
-  else if (mar) w[1].push(strengthA(2, wtr <= 8 ? 'licht' : 'onderhoud'));
-  else if (phase === 'taper' && wtr === 2) w[1].push(strengthA(2, 'licht'));
+  if (pre) w[1].push(strengthA(deload || c.tuneup || c.postRace ? 2 : 3, 'zwaar', c.knee));
+  else if (mar) w[1].push(strengthA(2, wtr <= 8 ? 'licht' : 'onderhoud', c.knee));
+  else if (phase === 'taper' && wtr === 2) w[1].push(strengthA(2, 'licht', c.knee));
 
   // Woensdag
   const ez = mar ? [65, 70, 75, 50][bw - 1] : phase === 'taper' ? (wtr === 2 ? 50 : 40) : phase === 'race' ? 30 : [50, 55, 60, 40][bw - 1];
@@ -728,7 +745,7 @@ function plan(c) {
 
   // Vrijdag
   if (pre) {
-    if (!c.tuneup) w[4].push(strengthB(deload || c.postRace ? 2 : 3));
+    if (!c.tuneup) w[4].push(strengthB(deload || c.postRace ? 2 : 3, c.knee));
     w[4].push(easyRun('vr-rec', 'Herstelloop', 30, { optional: true, pace: P.rec, extra: ['Alleen als de benen goed voelen. Anders overslaan, dat is ook prima.'] }));
   } else if (mar || phase === 'taper') w[4].push(easyRun('vr-ez', 'Rustige loop + strides', mar && !deload ? 45 : 35, { strides: true }));
   else w[4].push(mobility('vr-mob', 'Rust / mobiliteit'));
@@ -1295,6 +1312,7 @@ $('#openSet').onclick = () => {
   $('#sStart').value = settings.blockStart;
   $('#sDrempel').value = settings.drempelStart;
   $('#sSnelheid').value = settings.snelheidStart;
+  $('#sKnee').value = settings.kneeUntil || '';
   $('#sRaces').innerHTML = settings.races.map(raceRow).join('');
   renderStorage();
   $('#setDlg').showModal();
@@ -1322,6 +1340,7 @@ $('#sSave').onclick = () => {
   settings.blockStart = toMon('#sStart') || settings.blockStart;
   settings.drempelStart = toMon('#sDrempel') || settings.drempelStart;
   settings.snelheidStart = toMon('#sSnelheid') || settings.snelheidStart;
+  settings.kneeUntil = $('#sKnee').value || '';
   settings.races = [...document.querySelectorAll('#sRaces .race-row')]
     .map(row => ({ id: row.dataset.id, name: row.querySelector('.rn').value.trim() || 'Wedstrijd', date: row.querySelector('.rd').value,
       km: +row.querySelector('.rk').value || 10, target: row.querySelector('.rt').value.trim(), main: row.querySelector('.rm').checked || undefined }))

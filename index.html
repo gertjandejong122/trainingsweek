@@ -413,7 +413,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22g';
+const APP_VERSION = '2026-10-22h';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -859,8 +859,8 @@ function render() { tab === 'kracht' ? renderLifts() : renderWeek() }
 // Coach-feedback: op een week zelf, en als terugblik bovenaan de week erna
 function coachCard(fb, mon, label) {
   const list = (title, items, cls) => items && items.length ? `<div class="cf-block ${cls}"><b>${title}</b><ul>${items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
-  return `<details class="coachfb"${label === 'terugblik' ? ' open' : ''}>
-    <summary><span>🧑‍🏫 ${label === 'terugblik' ? 'Terugblik vorige week' : 'Coach-feedback deze week'} · week ${isoWeek(mon)}</span><span class="hint">${fb.written ? 'geschreven ' + new Date(fb.written).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</span></summary>
+  return `<details class="coachfb" open>
+    <summary><span>🧑‍🏫 ${label === 'terugblik' ? 'Terugblik vorige week' : 'Coach-feedback deze week'} · week ${isoWeek(mon)}${fb.written && ymd(new Date(fb.written)) < ymd(addDays(mon, 6)) ? ' · tussenstand' : ''}</span><span class="hint">${fb.written ? 'geschreven ' + new Date(fb.written).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</span></summary>
     ${fb.summary ? `<p>${esc(fb.summary)}</p>` : ''}
     <div class="cf-grid">${list('👍 Goed', fb.good, 'good')}${list('🎯 Verbeterpunten', fb.improve, 'improve')}${list('📈 Progressie', fb.progress, 'progress')}${list('➡️ Focus komende week', fb.focus, 'focus')}</div>
   </details>`;

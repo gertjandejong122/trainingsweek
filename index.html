@@ -393,7 +393,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-21';
+const APP_VERSION = '2026-10-22';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -513,7 +513,7 @@ function mobility(id, title = 'Mobiliteit', dur = 10) {
 }
 function commute(id, title, easy, extra = []) {
   const [lo, hi, z] = easy ? [55, 70, 'Z1–Z2'] : [65, 75, 'Z2'];
-  return { id, sport: 'bike', title, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
+  return { id, sport: 'bike', title, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
     details: ['Eerste 10 min rustig inrijden.', 'Cadans 85–95 rpm.', 'Echt in de zone blijven: dit is aerobe basis, geen race.', 'Wind tegen? Accepteer een lagere snelheid, geen hogere watts.', ...extra] };
 }
 function easyRun(id, title, dur, opts = {}) {
@@ -713,7 +713,7 @@ function plan(c) {
   const thuNote = phase === 'race' ? ['Raceweek: liever met de trein of auto? Prima, sla de ritten dan over.'] : [];
   w[3].push(commute('do-heen', 'Woon-werk heen', phase === 'race', ['Rustig rijden, spaar je voor de rit terug.', ...thuNote]));
   w[3].push(sweet
-    ? { id: 'do-terug', sport: 'bike', title: `Terug · sweet spot ${ss[0]}`, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
+    ? { id: 'do-terug', sport: 'bike', title: `Terug · sweet spot ${ss[0]}`, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
         details: ['15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', 'Rest van de rit in Z1–Z2.'] }
     : commute('do-terug', 'Woon-werk terug', phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote]));
   if (phase === 'race') w[3].forEach(s => s.optional = true);
@@ -731,7 +731,7 @@ function plan(c) {
 
   // Zondag
   if (mar) w[6].push(easyRun('zo-ez', 'Herstelloop', deload ? 30 : 40, { pace: P.rec, extra: ['Rustig de benen losmaken na de lange duurloop.'] }));
-  else w[6].push({ id: 'zo-rit', sport: 'bike', title: 'Herstelrit of rust', optional: true, dur: 75, summary: `60–90 min (~${rideKm(60)}–${rideKm(90)} km) · Z1–Z2 50–70% FTP${watts(50, 70)}`,
+  else w[6].push({ id: 'zo-rit', sport: 'bike', title: 'Herstelrit of rust', optional: true, km: rideKm(75), dur: 75, summary: `60–90 min (~${rideKm(60)}–${rideKm(90)} km) · Z1–Z2 50–70% FTP${watts(50, 70)}`,
     details: ['Optioneel. Moe na de lange duurloop? Neem dan rust.', 'Koffiestop toegestaan.'] });
   w[6].push(mobility('zo-mob', 'Mobiliteit + foamrollen', 15));
 
@@ -931,7 +931,7 @@ function openSession(date, id) {
       <div class="lbl">Gevoel<div class="seg feel" id="fFeel">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}">${FEEL[n]}</button>`).join('')}</div></div>
       <div class="row">
         <label>Duur (min)<input type="number" id="fDur" min="0" value="${esc(lg.duration)}" placeholder="${s.dur}"></label>
-        ${hasDist ? `<label>Afstand (km)<input type="number" step="0.1" min="0" id="fDist" value="${esc(lg.distance)}"></label>` : ''}
+        ${hasDist ? `<label>Afstand (km)<input type="number" step="0.1" min="0" id="fDist" value="${esc(lg.distance ?? (s.sport === 'bike' ? s.km : ''))}"></label>` : ''}
         ${s.sport === 'bike' ? `<label>Gem./NP (W)<input type="number" min="0" id="fPow" value="${esc(lg.power)}"></label>` : ''}
         ${hasDist ? `<label>Gem. hartslag<input type="number" min="0" id="fHr" value="${esc(lg.hr)}"></label>` : ''}
       </div>

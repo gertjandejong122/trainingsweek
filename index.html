@@ -404,7 +404,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22e';
+const APP_VERSION = '2026-10-22f';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -748,9 +748,9 @@ function plan(c) {
   const ftpTest = settings.ftpTestDate && ymd(addDays(c.mon, 3)) === settings.ftpTestDate;
   w[3].push(ftpTest
     ? { id: 'do-terug', sport: 'bike', title: 'Terug · FTP-test 20 min', km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · 20 min zo hard als je gelijkmatig volhoudt`,
-        details: ['Waarom: je beste 20 min van de afgelopen 12 maanden was 291 W (feb 2026) en Garmin rekent met ~277 W, het dashboard met 310 W. Een test maakt al je zones betrouwbaar.',
+        details: ['Waarom: zonder test in het afgelopen jaar ligt je FTP ergens tussen ~276 W (ondergrens uit je beste 20 min in gewone ritten) en 310 W. Je sweet spot van 22 okt wijst op ~285–300 W. Een test maakt al je zones betrouwbaar.',
           '15 min inrijden in Z2, daarna 3 × 1 min snel (100+ rpm) met 1 min rustig, dan 5 min Z2.',
-          '20 min all-out maar gelijkmatig: begin rond 270 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
+          '20 min all-out maar gelijkmatig: begin rond 290 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
           'Rest van de rit rustig uitrijden.',
           'Vul bij "Gem./NP" het gemiddelde vermogen van die 20 min in (staat in Garmin als ronde of als "max. gemiddeld vermogen 20 min"). Je FTP is ≈ 95% daarvan: pas hem aan onder ⚙ Instellingen.'] }
     : sweet

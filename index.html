@@ -119,6 +119,14 @@ textarea{min-height:80px;resize:vertical}
 .storebox a{color:var(--accent)}
 .storebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px;font-size:13px}
 @media (max-width:600px){.race-row{grid-template-columns:1fr 1fr}}
+.coachfb{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:10px 14px;margin:0 0 12px}
+.coachfb summary{cursor:pointer;display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:14px}
+.coachfb p{margin:8px 0 4px;font-size:13.5px}
+.cf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 18px;margin-top:6px}
+.cf-block b{font-size:13px}
+.cf-block ul{margin:4px 0 0;padding-left:18px;font-size:13px}
+.cf-block li{margin:3px 0}
+.cf-block.improve{background:color-mix(in srgb,var(--warn) 8%,transparent);border-radius:8px;padding:6px 10px}
 .movesel{font:inherit;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
 .tabs{display:flex;gap:4px;margin-bottom:10px}
 .tabs button{border-radius:999px;padding:5px 14px;font-size:13.5px}
@@ -211,6 +219,7 @@ textarea{min-height:80px;resize:vertical}
 <main id="weekView">
   <div class="season" id="season"></div>
   <p class="phase-desc" id="phaseDesc"></p>
+  <div id="coach"></div>
   <div class="stats" id="stats"></div>
   <div class="week" id="week"></div>
   <div class="legend">
@@ -404,16 +413,27 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22f';
+const APP_VERSION = '2026-10-22g';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
 const gistBody = () => JSON.stringify({ ...remoteExtra, app: 'trainingsweek', version: 1,
   appVersion: remoteVersion > APP_VERSION ? remoteVersion : APP_VERSION, settings, logs, lifts, moves }, null, 2);
+// Weekfeedback van de coach staat in een apart bestand in dezelfde Gist; het dashboard leest het alleen
+const COACH_FILE = 'coachfeedback.json', LS_COACH = 'tw_coach';
+let coach = load(LS_COACH, {}); // maandag 'YYYY-MM-DD' → { written, summary, good[], improve[], progress[], focus[] }
+const fileText = async f => f.truncated ? (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
 async function readGist() {
-  const f = (await gh('/gists/' + gist.id)).files[GIST_FILE];
+  const files = (await gh('/gists/' + gist.id)).files;
+  if (files[COACH_FILE]) {
+    try {
+      const c = JSON.parse(await fileText(files[COACH_FILE]));
+      if (JSON.stringify(c) !== JSON.stringify(coach)) { coach = c; localStorage.setItem(LS_COACH, JSON.stringify(coach)); render() }
+    } catch (e) { console.error('coachfeedback onleesbaar', e) }
+  }
+  const f = files[GIST_FILE];
   if (!f) return null;
-  const txt = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+  const txt = await fileText(f);
   return txt && txt.trim() ? JSON.parse(txt) : null;
 }
 // Heeft deze browser iets dat nog niet in de Gist staat?
@@ -836,6 +856,20 @@ function cardHtml(s, date, lg) {
 
 function render() { tab === 'kracht' ? renderLifts() : renderWeek() }
 
+// Coach-feedback: op een week zelf, en als terugblik bovenaan de week erna
+function coachCard(fb, mon, label) {
+  const list = (title, items, cls) => items && items.length ? `<div class="cf-block ${cls}"><b>${title}</b><ul>${items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+  return `<details class="coachfb"${label === 'terugblik' ? ' open' : ''}>
+    <summary><span>🧑‍🏫 ${label === 'terugblik' ? 'Terugblik vorige week' : 'Coach-feedback deze week'} · week ${isoWeek(mon)}</span><span class="hint">${fb.written ? 'geschreven ' + new Date(fb.written).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</span></summary>
+    ${fb.summary ? `<p>${esc(fb.summary)}</p>` : ''}
+    <div class="cf-grid">${list('👍 Goed', fb.good, 'good')}${list('🎯 Verbeterpunten', fb.improve, 'improve')}${list('📈 Progressie', fb.progress, 'progress')}${list('➡️ Focus komende week', fb.focus, 'focus')}</div>
+  </details>`;
+}
+function renderCoach() {
+  const cur = coach[ymd(viewMon)], prevMon = addDays(viewMon, -7), prev = coach[ymd(prevMon)];
+  $('#coach').innerHTML = (prev ? coachCard(prev, prevMon, 'terugblik') : '') + (cur ? coachCard(cur, viewMon, 'deze week') : '');
+}
+
 function renderWeek() {
   const today = ymd(new Date());
   const c = context(viewMon);
@@ -850,6 +884,7 @@ function renderWeek() {
     + c.races.map(r => `<span class="badge" style="color:var(--race);border-color:var(--race)">🏁 ${esc(r.name)}</span>`).join('')
     + (c.postRace ? '<span class="badge deload">Herstel na wedstrijd</span>' : '');
   $('#phaseDesc').textContent = ph.d;
+  renderCoach();
 
   let plN = 0, doneN = 0, plMin = 0, doneMin = 0, runKm = 0, bikeKm = 0, rpeSum = 0, rpeN = 0, html = '';
   const open = [];

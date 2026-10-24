@@ -58,6 +58,8 @@ main{max-width:1500px;margin:0 auto;padding:8px 24px 48px}
 .dayhead{display:flex;justify-content:space-between;align-items:baseline}
 .dayhead b{font-size:14px}
 .dayhead span{color:var(--muted);font-size:12px}
+.homebtn{font:inherit;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer;margin-left:auto;margin-right:6px}
+.homebtn.on{color:var(--accent);border-color:var(--accent)}
 .today .dayhead span{color:var(--accent);font-weight:600}
 .rest{color:var(--muted);font-size:12.5px;font-style:italic;padding:4px 2px}
 .card{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:9px;padding:8px 10px;cursor:pointer;transition:transform .08s,border-color .08s}
@@ -334,8 +336,8 @@ const DEFAULT_EXERCISES = [
   { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true },
   { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true }
 ];
-const EXERCISES_VERSION = 4;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [] };
+const EXERCISES_VERSION = 5;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
@@ -349,6 +351,8 @@ function migrateSettings() {
   if (from < 3 && settings.kneeUntil === undefined) settings.kneeUntil = '2026-11-16';
   // v4: FTP-test na analyse Garmin-historie (TSS wijst op FTP ~277 W, dashboard staat op 310 W)
   if (from < 4 && settings.ftpTestDate === undefined) settings.ftpTestDate = '2026-10-29';
+  // v5: thuiswerkdagen (datum → true), aan/uit te zetten in de weekweergave
+  if (from < 5 && settings.homeDates === undefined) settings.homeDates = { '2026-10-26': true, '2026-10-29': true };
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
@@ -413,7 +417,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-22h';
+const APP_VERSION = '2026-10-24a';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -547,6 +551,13 @@ function commute(id, title, easy, extra = []) {
   const [lo, hi, z] = easy ? [55, 70, 'Z1–Z2'] : [65, 75, 'Z2'];
   return { id, sport: 'bike', title, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
     details: ['Eerste 10 min rustig inrijden.', 'Cadans 85–95 rpm.', 'Echt in de zone blijven: dit is aerobe basis, geen race.', 'Wind tegen? Accepteer een lagere snelheid, geen hogere watts.', ...extra] };
+}
+// Thuiswerkdag: geen woon-werk maar één losse rit. Zelfde id als de terugrit, zodat logs en adviezen blijven kloppen.
+const isHome = date => !!(settings.homeDates || {})[date];
+function homeRide(id, title, dur, easy, extra = []) {
+  const [lo, hi, z] = easy ? [55, 70, 'Z1–Z2'] : [60, 75, 'Z2'];
+  return { id, sport: 'bike', title, km: rideKm(dur), dur, summary: `${dur} min (~${rideKm(dur)} km) · ${z} ${lo}–${hi}% FTP${watts(lo, hi)}`,
+    details: ['Thuiswerkdag: één losse rit voor of na het werk, of in de lunchpauze.', 'Cadans 85–95 rpm.', 'Echt in de zone blijven: dit is aerobe basis, geen race.', ...extra] };
 }
 // Geschatte afstand voor het vooringevulde feedbackveld (afgerond op 0,5 km)
 const halfKm = x => Math.round(x * 2) / 2;
@@ -735,18 +746,22 @@ function plan(c) {
   const pre = ['basis', 'drempel', 'snelheid'].includes(phase);
   const mar = phase === 'marathon';
   const w = [[], [], [], [], [], [], []];
+  const home = i => isHome(ymd(addDays(c.mon, i)));
+  const homeOpt = (s, opt) => { s.optional = opt; return s };
 
   if (phase === 'herstel') {
-    w[0] = [commute('ma-heen', 'Woon-werk heen', true), commute('ma-terug', 'Woon-werk terug', true)];
+    w[0] = home(0) ? [homeOpt(homeRide('ma-terug', 'Thuiswerkdag · herstelrit', 45, true), true)] : [commute('ma-heen', 'Woon-werk heen', true), commute('ma-terug', 'Woon-werk terug', true)];
     w[2] = [easyRun('wo-ez', 'Herstelloop', 30, { optional: true, pace: P.rec })];
-    w[3] = [commute('do-heen', 'Woon-werk heen', true), commute('do-terug', 'Woon-werk terug', true)];
+    w[3] = home(3) ? [homeOpt(homeRide('do-terug', 'Thuiswerkdag · herstelrit', 45, true), true)] : [commute('do-heen', 'Woon-werk heen', true), commute('do-terug', 'Woon-werk terug', true)];
     w[5] = [longRun(c)];
     w[6] = [mobility('zo-mob', 'Mobiliteit + foamrollen', 15)];
     return w;
   }
 
   // Maandag
-  w[0].push(commute('ma-heen', 'Woon-werk heen', phase === 'race'), commute('ma-terug', 'Woon-werk terug', true, ['Herstelrit voor de kwaliteitstraining van dinsdag.']), mobility('ma-mob'));
+  if (home(0)) w[0].push(homeOpt(homeRide('ma-terug', 'Thuiswerkdag · duurrit', 60, true,
+    ['Vervangt de 2 × 40 km woon-werk. Houd hem rustig: morgen is je kwaliteitstraining.', 'Geen tijd? Dan liever 30 min dan niets; overslaan mag ook.']), phase === 'race'), mobility('ma-mob'));
+  else w[0].push(commute('ma-heen', 'Woon-werk heen', phase === 'race'), commute('ma-terug', 'Woon-werk terug', true, ['Herstelrit voor de kwaliteitstraining van dinsdag.']), mobility('ma-mob'));
 
   // Dinsdag
   w[1].push(c.postRace ? easyRun('di-iv', 'Herstelloop na wedstrijd', 40, { pace: P.rec, extra: ['Benen nog moe van de wedstrijd: echt rustig, intervallen deze week overslaan.'] }) : quality(c));
@@ -764,18 +779,26 @@ function plan(c) {
   const sweet = pre && !deload && !c.tuneup && !c.postRace;
   const ss = [['3 × 10 min', 88], ['3 × 12 min', 90], ['2 × 20 min', 92]][bw - 1];
   const thuNote = phase === 'race' ? ['Raceweek: liever met de trein of auto? Prima, sla de ritten dan over.'] : [];
-  w[3].push(commute('do-heen', 'Woon-werk heen', phase === 'race', ['Rustig rijden, spaar je voor de rit terug.', ...thuNote]));
+  const thuHome = home(3);
+  if (!thuHome) w[3].push(commute('do-heen', 'Woon-werk heen', phase === 'race', ['Rustig rijden, spaar je voor de rit terug.', ...thuNote]));
   const ftpTest = settings.ftpTestDate && ymd(addDays(c.mon, 3)) === settings.ftpTestDate;
+  // Thuiswerkdag: de kernrit als losse rit vanaf huis, met in- en uitrijden
+  const thuDur = ftpTest ? 70 : [75, 80, 80][bw - 1];
+  const [thuKm, thuMin, thuPre] = thuHome ? [rideKm(thuDur), thuDur, 'Thuiswerkdag · '] : [COMMUTE_KM, rideDur(COMMUTE_KM), 'Terug · '];
+  const thuInfo = thuHome ? `${thuMin} min (~${thuKm} km)` : `${COMMUTE_KM} km`;
+  const thuHomeNote = thuHome ? ['Thuiswerkdag: losse rit vanaf huis (of op de trainer), voor of na het werk. Zonder woon-werkrit in de benen rij je deze frisser dan normaal.'] : [];
   w[3].push(ftpTest
-    ? { id: 'do-terug', sport: 'bike', title: 'Terug · FTP-test 20 min', km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · 20 min zo hard als je gelijkmatig volhoudt`,
-        details: ['Waarom: zonder test in het afgelopen jaar ligt je FTP ergens tussen ~276 W (ondergrens uit je beste 20 min in gewone ritten) en 310 W. Je sweet spot van 22 okt wijst op ~285–300 W. Een test maakt al je zones betrouwbaar.',
+    ? { id: 'do-terug', sport: 'bike', title: thuPre + 'FTP-test 20 min', km: thuKm, dur: thuMin, summary: `${thuInfo} · 20 min zo hard als je gelijkmatig volhoudt`,
+        details: [...thuHomeNote, 'Waarom: zonder test in het afgelopen jaar ligt je FTP ergens tussen ~276 W (ondergrens uit je beste 20 min in gewone ritten) en 310 W. Je sweet spot van 22 okt wijst op ~285–300 W. Een test maakt al je zones betrouwbaar.',
           '15 min inrijden in Z2, daarna 3 × 1 min snel (100+ rpm) met 1 min rustig, dan 5 min Z2.',
           '20 min all-out maar gelijkmatig: begin rond 290 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
           'Rest van de rit rustig uitrijden.',
           'Vul bij "Gem./NP" het gemiddelde vermogen van die 20 min in (staat in Garmin als ronde of als "max. gemiddeld vermogen 20 min"). Je FTP is ≈ 95% daarvan: pas hem aan onder ⚙ Instellingen.'] }
     : sweet
-    ? { id: 'do-terug', sport: 'bike', title: `Terug · sweet spot ${ss[0]}`, km: COMMUTE_KM, dur: rideDur(COMMUTE_KM), summary: `${COMMUTE_KM} km · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
-        details: ['15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', 'Rest van de rit in Z1–Z2.'] }
+    ? { id: 'do-terug', sport: 'bike', title: `${thuPre}sweet spot ${ss[0]}`, km: thuKm, dur: thuMin, summary: `${thuInfo} · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
+        details: [...thuHomeNote, '15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', thuHome ? '10–15 min uitrijden in Z1–Z2.' : 'Rest van de rit in Z1–Z2.'] }
+    : thuHome
+    ? homeRide('do-terug', 'Thuiswerkdag · duurrit', 60, phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote])
     : commute('do-terug', 'Woon-werk terug', phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote]));
   if (phase === 'race') w[3].forEach(s => s.optional = true);
 
@@ -793,7 +816,8 @@ function plan(c) {
   // Zondag
   if (mar) w[6].push(easyRun('zo-ez', 'Herstelloop', deload ? 30 : 40, { pace: P.rec, extra: ['Rustig de benen losmaken na de lange duurloop.'] }));
   else w[6].push({ id: 'zo-rit', sport: 'bike', title: 'Herstelrit of rust', optional: true, km: rideKm(75), dur: 75, summary: `60–90 min (~${rideKm(60)}–${rideKm(90)} km) · Z1–Z2 50–70% FTP${watts(50, 70)}`,
-    details: ['Optioneel. Moe na de lange duurloop? Neem dan rust.', 'Koffiestop toegestaan.'] });
+    details: ['Optioneel. Moe na de lange duurloop? Neem dan rust.', 'Koffiestop toegestaan.',
+      home(0) || home(3) ? 'Thuiswerkweek: je mist woon-werkkilometers, dus deze rit telt zwaarder. Voel je je goed, rij dan de volle 90 min.' : null].filter(Boolean) });
   w[6].push(mobility('zo-mob', 'Mobiliteit + foamrollen', 15));
 
   // Wedstrijden: racedag vervangen, dag ervoor shake-out, dag erna geen looptraining of kracht
@@ -892,7 +916,8 @@ function renderWeek() {
 
   p.forEach((sessions, i) => {
     const day = addDays(viewMon, i), date = ymd(day);
-    html += `<div class="day${date === today ? ' today' : ''}"><div class="dayhead"><b>${DAYS[i]}</b><span>${date === today ? 'vandaag' : fmt(day)}</span></div>`;
+    const homeBtn = i === 0 || i === 3 ? `<button type="button" class="homebtn${isHome(date) ? ' on' : ''}" data-date="${date}" title="Klik om te wisselen tussen thuiswerken en naar kantoor fietsen">${isHome(date) ? '🏠 thuis' : '🚲 kantoor'}</button>` : '';
+    html += `<div class="day${date === today ? ' today' : ''}"><div class="dayhead"><b>${DAYS[i]}</b>${homeBtn}<span>${date === today ? 'vandaag' : fmt(day)}</span></div>`;
     if (!sessions.length) html += '<div class="rest">Rustdag</div>';
     sessions.forEach(s => {
       const lg = getLog(date + '|' + s.id);
@@ -1350,6 +1375,13 @@ $('#tabs').onclick = e => { const t = e.target.closest('button')?.dataset.tab; i
 document.addEventListener('click', e => {
   const tw = e.target.closest('.tw');
   if (tw) { viewMon = parseYmd(tw.dataset.mon); render(); return }
+  const hb = e.target.closest('.homebtn');
+  if (hb) {
+    const hd = { ...(settings.homeDates || {}) };
+    if (hd[hb.dataset.date]) delete hd[hb.dataset.date]; else hd[hb.dataset.date] = true;
+    settings.homeDates = hd; settings.savedAt = new Date().toISOString();
+    persist(); render(); return;
+  }
   const el = e.target.closest('.card, .upitem');
   if (el) openSession(el.dataset.date, el.dataset.id);
 });

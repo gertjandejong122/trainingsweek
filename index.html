@@ -298,7 +298,7 @@ textarea{min-height:80px;resize:vertical}
 </div></dialog>
 
 <script>
-const LS_LOGS = 'tw_logs', LS_SET = 'tw_settings', LS_LIFTS = 'tw_lifts', LS_MOVES = 'tw_moves';
+const LS_LOGS = 'tw_logs', LS_SET = 'tw_settings', LS_LIFTS = 'tw_lifts', LS_MOVES = 'tw_moves', LS_SWAPS = 'tw_swaps';
 const SPORT = {
   run: { c: 'var(--run)', l: 'Hardlopen' },
   bike: { c: 'var(--bike)', l: 'Fietsen' },
@@ -336,8 +336,8 @@ const DEFAULT_EXERCISES = [
   { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true },
   { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true }
 ];
-const EXERCISES_VERSION = 5;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [] };
+const EXERCISES_VERSION = 6;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
@@ -353,6 +353,8 @@ function migrateSettings() {
   if (from < 4 && settings.ftpTestDate === undefined) settings.ftpTestDate = '2026-10-29';
   // v5: thuiswerkdagen (datum → true), aan/uit te zetten in de weekweergave
   if (from < 5 && settings.homeDates === undefined) settings.homeDates = { '2026-10-26': true, '2026-10-29': true };
+  // v6: herstelrit van 25-10-2026 werd een loop op de loopband (slecht weer)
+  if (from < 6 && !swaps['2026-10-25|zo-rit']) swaps['2026-10-25|zo-rit'] = { sport: 'run', saved: new Date().toISOString() };
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
@@ -387,6 +389,7 @@ const rideKm = min => Math.round(min / 60 * bikeSpeed());
 let logs = load(LS_LOGS, {});
 let lifts = load(LS_LIFTS, {});
 let moves = load(LS_MOVES, {}); // 'oorspronkelijkeDatum|sessieId' → { to, saved }
+let swaps = load(LS_SWAPS, {}); // 'oorspronkelijkeDatum|sessieId' → { sport: 'run' | 'bike' | null, saved }
 let settings = load(LS_SET, {});
 if (!settings.blockStart) settings.blockStart = ymd(monday(new Date()));
 if (!settings.races) settings.races = DEFAULT_RACES;
@@ -397,7 +400,7 @@ saveLocal();
 let viewMon = monday(new Date());
 let cur = null;
 
-function saveLocal() { localStorage.setItem(LS_LOGS, JSON.stringify(logs)); localStorage.setItem(LS_LIFTS, JSON.stringify(lifts)); localStorage.setItem(LS_MOVES, JSON.stringify(moves)); localStorage.setItem(LS_SET, JSON.stringify(settings)) }
+function saveLocal() { localStorage.setItem(LS_LOGS, JSON.stringify(logs)); localStorage.setItem(LS_LIFTS, JSON.stringify(lifts)); localStorage.setItem(LS_MOVES, JSON.stringify(moves)); localStorage.setItem(LS_SWAPS, JSON.stringify(swaps)); localStorage.setItem(LS_SET, JSON.stringify(settings)) }
 function persist() { saveLocal(); clearTimeout(pushTimer); pushTimer = setTimeout(syncGist, 800) }
 // Verwijderde logs blijven als tombstone bestaan, zodat het samenvoegen tussen laptops ze niet terugzet
 const getLog = k => { const l = logs[k]; return l && !l.deleted ? l : null };
@@ -417,12 +420,12 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-24a';
-const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves'];
+const APP_VERSION = '2026-10-25a';
+const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
 const gistBody = () => JSON.stringify({ ...remoteExtra, app: 'trainingsweek', version: 1,
-  appVersion: remoteVersion > APP_VERSION ? remoteVersion : APP_VERSION, settings, logs, lifts, moves }, null, 2);
+  appVersion: remoteVersion > APP_VERSION ? remoteVersion : APP_VERSION, settings, logs, lifts, moves, swaps }, null, 2);
 // Weekfeedback van de coach staat in een apart bestand in dezelfde Gist; het dashboard leest het alleen
 const COACH_FILE = 'coachfeedback.json', LS_COACH = 'tw_coach';
 let coach = load(LS_COACH, {}); // maandag 'YYYY-MM-DD' → { written, summary, good[], improve[], progress[], focus[] }
@@ -444,7 +447,7 @@ async function readGist() {
 function localAhead(remote) {
   if (!remote) return true;
   const ahead = (mine, theirs = {}) => Object.entries(mine).some(([k, v]) => !theirs[k] || (v.saved || '') > (theirs[k].saved || ''));
-  if (ahead(logs, remote.logs) || ahead(lifts, remote.lifts) || ahead(moves, remote.moves)) return true;
+  if (ahead(logs, remote.logs) || ahead(lifts, remote.lifts) || ahead(moves, remote.moves) || ahead(swaps, remote.swaps)) return true;
   return (settings.savedAt || '') > ((remote.settings || {}).savedAt || '');
 }
 // Ophalen, samenvoegen en zo nodig terugschrijven. Acties lopen na elkaar zodat ze elkaar niet kruisen.
@@ -453,14 +456,14 @@ function syncGist() {
   const run = async () => {
     syncState = 'syncing'; renderStorage();
     try {
-      const before = JSON.stringify({ settings, logs, lifts, moves });
+      const before = JSON.stringify({ settings, logs, lifts, moves, swaps });
       const remote = await readGist();
       if (remote) {
         remoteExtra = Object.fromEntries(Object.entries(remote).filter(([k]) => !KNOWN_KEYS.includes(k)));
         remoteVersion = remote.appVersion || '';
         mergeData(remote); saveLocal();
       }
-      if (JSON.stringify({ settings, logs, lifts, moves }) !== before) render();
+      if (JSON.stringify({ settings, logs, lifts, moves, swaps }) !== before) render();
       if (localAhead(remote)) await gh('/gists/' + gist.id, { method: 'PATCH', body: JSON.stringify({ files: { [GIST_FILE]: { content: gistBody() } } }) });
       syncState = 'idle'; syncError = ''; lastSync = new Date();
     } catch (e) { console.error(e); syncState = 'error'; syncError = e.message || String(e) }
@@ -496,6 +499,7 @@ function mergeData(data) {
   merge(logs, data.logs);
   merge(lifts, data.lifts);
   merge(moves, data.moves);
+  merge(swaps, data.swaps);
   if (data.settings && (data.settings.savedAt || '') >= (settings.savedAt || '')) {
     settings = { ...settings, ...data.settings, exV: data.settings.exV };
     migrateSettings();
@@ -740,6 +744,40 @@ function raceSession(r) {
     summary: `${String(km).replace('.', ',')} km${r.target ? ` · doel ${r.target}` : ''}`, details: tips };
 }
 
+// Fietsen ⇄ lopen wisselen (bv. bij slecht weer). Zelfde id, zodat de log en het verplaatsen blijven werken.
+// Omrekening op trainingseffect, niet op tijd: lopen belast meer, dus korter; fietsen langer.
+const r5 = x => Math.round(x / 5) * 5;
+const canSwap = s => (s.sport === 'run' || s.sport === 'bike') && !s.race && s.id !== 'shake' && !/FTP-test/.test(s.title);
+function swapSport(s) {
+  const tag = { swappedFrom: s.sport, optional: s.optional };
+  if (s.sport === 'bike') {
+    const easy = /Z1/.test(s.summary);
+    const dur = Math.min(Math.max(r5(s.dur * 0.6), 20), 60);
+    return { ...easyRun(s.id, easy ? 'Herstelloop (i.p.v. fietsen)' : 'Rustige loop (i.p.v. fietsen)', dur, { pace: easy ? P.rec : P.easy,
+      extra: [`Vervangt: ${s.title} (${s.dur} min). Lopen belast meer dan fietsen, dus korter.`,
+        /sweet/.test(s.title) ? 'Geen sweet spot-equivalent: je loopkwaliteit zit al op dinsdag. Houd het rustig.' : null,
+        /-(heen|terug)$/.test(s.id) ? 'Wissel op een woon-werkdag maar één rit naar lopen. De andere sla je over: 2 × 50 min lopen is te veel.' : null,
+        'Loopband? Zet hem op 1% helling.'].filter(Boolean) }), ...tag };
+  }
+  const watt = (lo, hi) => `${lo}–${hi}% FTP${watts(lo, hi)}`;
+  if (s.id === 'di-iv' && !/Herstel/.test(s.title)) {
+    const vo2 = /^Interval/.test(s.title);
+    const [set, lo, hi, rest] = vo2 ? ['5 × 4 min', 106, 115, '4 min Z1'] : ['2 × 15 min', 95, 100, '5 min Z1'];
+    return { id: s.id, sport: 'bike', title: `Fiets-${vo2 ? 'intervallen' : 'drempel'} · ${set} (i.p.v. lopen)`, dur: 70, km: rideKm(70),
+      summary: `70 min · ${set} @ ${watt(lo, hi)}, ${rest}`,
+      details: [`Vervangt: ${s.title}.`, '15 min inrijden in Z2 + 3 × 1 min snel.', `${set} @ ${watt(lo, hi)}, ${rest} ertussen.`, 'Rest uitrijden in Z1–Z2. Trainer of een stuk zonder stoplichten.'], ...tag };
+  }
+  const long = s.id === 'za-lr';
+  const dur = r5(s.dur * (long ? 1.6 : 1.4));
+  const [lo, hi, z] = s.summary.includes(P.rec) ? [55, 70, 'Z1–Z2'] : [60, 75, 'Z2'];
+  return { id: s.id, sport: 'bike', title: `${long ? 'Lange duurrit' : 'Duurrit'} (i.p.v. lopen)`, dur, km: rideKm(dur),
+    summary: `${dur} min (~${rideKm(dur)} km) · ${z} ${watt(lo, hi)}`,
+    details: [`Vervangt: ${s.title} (${s.dur} min). Fietsen belast minder, dus langer.`,
+      /tempo/i.test(s.summary) ? `De tempostukken uit de loop rijd je als blokken van gelijke duur @ ${watt(80, 87)}.` : null,
+      long ? 'Neem 60 g koolhydraten per uur mee.' : null,
+      'Cadans 85–95 rpm.'].filter(Boolean), ...tag };
+}
+
 // Weekschema voor de context. Index 0 = maandag.
 function plan(c) {
   const { phase, bw, wtr, deload } = c;
@@ -832,11 +870,12 @@ function plan(c) {
   return w;
 }
 
-// Weekschema inclusief zelf verplaatste sessies (binnen dezelfde week)
+// Weekschema inclusief zelf gewisselde sport en verplaatste sessies (binnen dezelfde week)
 function weekPlan(mon) {
   const w = plan(context(mon));
   for (let i = 0; i < 7; i++) {
     const orig = ymd(addDays(mon, i));
+    w[i] = w[i].map(s => { const sw = swaps[orig + '|' + s.id]; return sw && sw.sport && sw.sport !== s.sport && canSwap(s) ? swapSport(s) : s });
     for (const s of [...w[i]]) {
       const mv = moves[orig + '|' + s.id];
       if (!mv || mv.deleted || mv.to === orig) continue;
@@ -873,7 +912,7 @@ function cardHtml(s, date, lg) {
   return `<div class="card ${st ? 'is' + st : ''}${s.race ? ' race' : ''}" style="--c:${colorOf(s)}" data-date="${date}" data-id="${s.id}">
     <div class="t"><span>${esc(s.title)}</span><span class="dur">${s.dur} min</span></div>
     <div class="s">${esc(s.summary)}</div>
-    <div class="meta">${s.optional ? '<span class="chip">optioneel</span>' : ''}${s.movedFrom ? `<span class="chip">↷ van ${DAYS[weekday(s.movedFrom)].slice(0, 2).toLowerCase()}</span>` : ''}${st ? `<span class="chip ${st}">${STATUS[st]}</span>` : ''}${lg && lg.rpe ? `<span class="chip">RPE ${lg.rpe}</span>` : ''}${lg && lg.feel ? `<span class="chip">${FEEL[lg.feel]}</span>` : ''}</div>
+    <div class="meta">${s.optional ? '<span class="chip">optioneel</span>' : ''}${s.movedFrom ? `<span class="chip">↷ van ${DAYS[weekday(s.movedFrom)].slice(0, 2).toLowerCase()}</span>` : ''}${s.swappedFrom ? `<span class="chip">⇄ was ${s.swappedFrom === 'bike' ? 'fietsen' : 'lopen'}</span>` : ''}${st ? `<span class="chip ${st}">${STATUS[st]}</span>` : ''}${lg && lg.rpe ? `<span class="chip">RPE ${lg.rpe}</span>` : ''}${lg && lg.feel ? `<span class="chip">${FEEL[lg.feel]}</span>` : ''}</div>
     ${lg && lg.notes ? `<div class="note">“${esc(lg.notes)}”</div>` : ''}
   </div>`;
 }
@@ -1038,7 +1077,7 @@ function openSession(date, id) {
       </div>
       <label>Feedback / notities<textarea id="fNotes" placeholder="${s.race ? 'Eindtijd, splits, hoe voelde het, wat neem je mee naar Berlijn?' : 'Hoe ging het? Benen, slaap, pijntjes, wat zou je aanpassen?'}">${esc(lg.notes)}</textarea></label>
       <div class="actions">
-        <div>${existing ? '<button type="button" id="fClear">Log wissen</button> ' : ''}${s.sport === 'strength' ? '<button type="button" id="fLift">🏋️ Gewichten loggen</button>' : ''}</div>
+        <div>${existing ? '<button type="button" id="fClear">Log wissen</button> ' : ''}${s.swappedFrom ? `<button type="button" id="fSwap">↺ Terug naar ${s.swappedFrom === 'bike' ? 'fietsen' : 'lopen'}</button> ` : canSwap(s) ? `<button type="button" id="fSwap">⇄ ${s.sport === 'bike' ? 'Lopen' : 'Fietsen'} in plaats hiervan</button> ` : ''}${s.sport === 'strength' ? '<button type="button" id="fLift">🏋️ Gewichten loggen</button>' : ''}</div>
         <div><button type="button" id="fCancel">Sluiten</button> <button type="button" class="primary" id="fSave">Opslaan</button></div>
       </div>
     </div>`;
@@ -1049,6 +1088,11 @@ function openSession(date, id) {
   $('#fCancel').onclick = () => $('#dlg').close();
   $('#fSave').onclick = saveLog;
   if (existing) $('#fClear').onclick = () => { tombstone(date + '|' + id); persist(); $('#dlg').close(); render() };
+  // Wisselen kan ook na het loggen: de log blijft aan dezelfde sessie hangen
+  if ($('#fSwap')) $('#fSwap').onclick = () => {
+    swaps[(s.movedFrom || date) + '|' + id] = { sport: s.swappedFrom ? null : s.sport === 'bike' ? 'run' : 'bike', saved: new Date().toISOString() };
+    persist(); $('#dlg').close(); render(); openSession(date, id);
+  };
   if (s.sport === 'strength') $('#fLift').onclick = () => { $('#dlg').close(); showTab('kracht'); openLift(null, date) };
   if ($('#fMove')) $('#fMove').onchange = e => {
     const orig = s.movedFrom || date, to = e.target.value;
@@ -1448,6 +1492,7 @@ $('#sImport').onchange = async e => {
     if (data.logs) logs = data.logs;
     if (data.lifts) lifts = data.lifts;
     if (data.moves) moves = data.moves;
+    if (data.swaps) swaps = data.swaps;
     if (data.settings) settings = { ...settings, ...data.settings, savedAt: new Date().toISOString() };
     persist(); $('#setDlg').close(); render();
   } catch { alert('Kon dit bestand niet lezen.') }

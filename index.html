@@ -422,7 +422,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-26a';
+const APP_VERSION = '2026-10-26b';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -592,7 +592,7 @@ function strengthA(sets, mode, knee) {
   if (mode !== 'zwaar') {
     const light = mode === 'licht';
     return {
-      id: 'krachtA', sport: 'strength', dur: light ? 25 : 35,
+      id: 'krachtA', sport: 'strength', legs: 'heavy', dur: light ? 25 : 35,
       title: `Kracht · full body ${mode}`,
       summary: `${sets} sets · benen zwaar maar weinig, bovenlijf kort`,
       details: [
@@ -613,7 +613,7 @@ function strengthA(sets, mode, knee) {
     };
   }
   return {
-    id: 'krachtA', sport: 'strength', dur: sets === 2 ? 40 : 55,
+    id: 'krachtA', sport: 'strength', legs: 'heavy', dur: sets === 2 ? 40 : 55,
     title: 'Kracht A · nadruk onderlijf',
     summary: `${sets} sets · ${knee ? 'knie-stabiliteit + ' : ''}plyometrie + zware benen + pull-ups`,
     details: [
@@ -636,7 +636,7 @@ function strengthA(sets, mode, knee) {
 // Full body, nadruk bovenlijf. Benen licht en explosief: zaterdag is de lange duurloop.
 function strengthB(sets, knee) {
   return {
-    id: 'krachtB', sport: 'strength', title: 'Kracht B · nadruk bovenlijf', dur: sets === 2 ? 35 : 45,
+    id: 'krachtB', sport: 'strength', legs: 'light', title: 'Kracht B · nadruk bovenlijf', dur: sets === 2 ? 35 : 45,
     summary: `${sets} sets · press, pull-ups, dips + lichte benen`,
     details: [
       'Warming-up 5 min: halo met KB 16 kg, armcirkels, 10 lichte swings, 5 push-ups.',
@@ -654,6 +654,58 @@ function strengthB(sets, knee) {
       PROGRESSIE
     ]
   };
+}
+
+// Vanaf 26-10-2026: 4 korte sessies van 20–25 min in plaats van 2 lange (voorkeur user: gewend aan korte KB-workouts).
+// Supersets houden het kort. Zware benen op de harde dinsdag, lichte benen + bilspieren op vrijdag, bovenlijf op ma en do.
+const STRENGTH4_FROM = '2026-10-26';
+// Modes: 'zwaar' (opbouw), 'onderhoud' (marathonblok), 'licht' (laatste 8 weken / taper)
+function legsSession(sets, mode, knee) {
+  const heavy = mode === 'zwaar', light = mode === 'licht';
+  const lunge = knee ? 'reverse lunge 8 per been, 2 × 16–20 kg, 3 s zakken (tijdelijk in plaats van de Bulgarian split squat; zak alleen zo diep als zonder verschuif-gevoel gaat)'
+    : `Bulgarian split squat ${light ? 6 : '6–8'} per been, ${light ? '2 × 16–20 kg' : '2 × 25–30 kg'}`;
+  return { id: 'krachtA', sport: 'strength', legs: 'heavy', dur: heavy && sets === 3 ? 25 : 20,
+    title: `Kracht · benen${heavy ? '' : ' ' + mode}`,
+    summary: `${sets} rondes · ${heavy ? 'plyometrie + ' : ''}lunge + hip thrust, RDL + kuit`,
+    details: [
+      'Warming-up 3 min: 10 goblet squats met KB 16 kg, 10 hip hinges, eenbenige glute bridge 10 per been (rechts eerst).',
+      heavy ? `Plyometrie: pogo jumps ${sets} × 15, box jumps op kniehoogte ${sets} × 5 (stap naar beneden)${knee ? '. Geen eenbenige hops zolang het knie-protocol loopt' : ', eenbenige hops 2 × 10 per been'}.` : 'Plyometrie: pogo jumps 2 × 15. Kort en snappy.',
+      `Superset 1, ${sets} rondes: ${lunge} + hip thrust ${light ? 10 : '8–12'} met ${light ? 'DB 20 kg' : 'DB 30 kg (of KB 24 kg)'} op je heupen, 2 s vasthouden boven. 60–90 s rust na elke ronde.`,
+      `Superset 2, ${sets} rondes: Romanian deadlift ${light ? '6, 2 × 20 kg' : '6–8, 2 × 30 kg, 3 s zakken'} + eenbenige kuitheffing 10–12 per been met DB, de helft met gebogen knie (soleus). 60–90 s rust.`,
+      heavy ? 'Houd 1–2 herhalingen over (RIR 1–2). Doe dit direct na de looptraining of minstens 6 uur later.'
+        : light ? 'Licht: ongeveer 60% van je normale gewicht. Alleen prikkel, geen spierpijn.' : 'Onderhoud: zelfde gewicht als eind basisfase, minder rondes (RIR 2–3).',
+      heavy ? PROGRESSIE : null,
+      knee ? KNEE_CHECK : null
+    ].filter(Boolean) };
+}
+function upperPush(sets) {
+  return { id: 'kr-ma', sport: 'strength', dur: 20, title: 'Kracht · bovenlijf duwen + trekken', summary: `${sets} rondes · bench + pull-ups, roeien + push-ups`,
+    details: [
+      'Warming-up 3 min: halo met KB 16 kg, armcirkels, 5 push-ups.',
+      `Superset 1, ${sets} rondes: bench press (dumbbells) 6–10, 2 × 25–30 kg + pull-ups max − 2. 90 s rust na elke ronde.`,
+      `Superset 2, ${sets} rondes: eenarmig roeien 10 per arm, DB 30 kg + push-ups max − 3. 60 s rust.`,
+      PROGRESSIE] };
+}
+function upperCore(sets) {
+  return { id: 'kr-do', sport: 'strength', dur: 20, title: 'Kracht · schouders, armen + core', summary: `${sets} rondes · pull-ups (meetmoment), dips, press + core`,
+    details: [
+      'Warming-up 3 min: halo met KB 16 kg, armcirkels, 5 push-ups.',
+      `Superset 1, ${sets} rondes: pull-ups zoveel mogelijk met strakke techniek (je meetmoment voor max pull-ups) + tricep dips max − 2. 2 min rust.`,
+      `Superset 2, ${sets} rondes: shoulder press (dumbbells) 6–10, 2 × 16–20 kg + lateral raise 12–15, licht (6–10 kg). 60 s rust.`,
+      'Core: dead bug 2 × 10 per kant + side plank 2 × 30 s per kant.',
+      PROGRESSIE] };
+}
+function gluteSession(sets, knee) {
+  return { id: 'kr-vr', sport: 'strength', legs: 'light', dur: 20, title: 'Kracht · bilspieren + knie (KB)', summary: `KB swings + eenbenige hip thrust${knee ? ' + knie-stabiliteit' : ''}`,
+    details: [
+      'Warming-up 2 min: halo met KB 16 kg, 10 hip hinges, 10 lichte swings.',
+      `KB swing 24 kg: ${sets + 2} × 10, elke minuut op de minuut. Explosief vanuit de heup, knijp je billen aan bovenin.`,
+      `Superset, ${sets} rondes: eenbenige hip thrust (schouders op de bank) 8–10 per been, 2 s vasthouden boven + zijlig heupabductie 15 per been, langzaam, teen iets omlaag. Rechts eerst, links doet evenveel. Gaat rechts 3 × 10 strak? Leg dan een DB van 10–16 kg op je heup. Log de herhalingen rechts als "Eenbenige glute bridge rechts".`,
+      knee ? 'Knie-stabiliteit: lateral step-down van een traptrede 2 × 8 per been, 3 s zakken, knie boven je 2e teen + wall sit 2 × 45 s.'
+        : 'Step-up (kniehoogte): 2 × 8 per been, licht en snel omhoog.',
+      'Copenhagen plank 2 × 20 s per kant.',
+      'Licht houden (RIR 3): morgen is je lange duurloop. Liever op zondag? Dat mag ook.',
+      GLUTE_CUE] };
 }
 
 const Q = {
@@ -812,9 +864,13 @@ function plan(c) {
 
   // Dinsdag
   w[1].push(c.postRace ? easyRun('di-iv', 'Herstelloop na wedstrijd', 40, { pace: P.rec, extra: ['Benen nog moe van de wedstrijd: echt rustig, intervallen deze week overslaan.'] }) : quality(c));
-  if (pre) w[1].push(strengthA(deload || c.tuneup || c.postRace ? 2 : 3, 'zwaar', c.knee));
-  else if (mar) w[1].push(strengthA(2, wtr <= 8 ? 'licht' : 'onderhoud', c.knee));
-  else if (phase === 'taper' && wtr === 2) w[1].push(strengthA(2, 'licht', c.knee));
+  const k4 = ymd(c.mon) >= STRENGTH4_FROM, kSets = deload || c.tuneup || c.postRace ? 2 : 3;
+  const legs = k4 ? legsSession : strengthA;
+  if (pre) w[1].push(legs(kSets, 'zwaar', c.knee));
+  else if (mar) w[1].push(legs(2, wtr <= 8 ? 'licht' : 'onderhoud', c.knee));
+  else if (phase === 'taper' && wtr === 2) w[1].push(legs(2, 'licht', c.knee));
+  // Bovenlijf op maandag (opbouwfases) en donderdag (ook als onderhoud in het marathonblok)
+  if (k4 && pre) w[0].push(upperPush(kSets));
 
   // Woensdag
   // Eerste basisblok korter: loopvolume geleidelijk opbouwen vanaf ~22 km/week
@@ -848,10 +904,11 @@ function plan(c) {
     ? homeRide('do-terug', 'Thuiswerkdag · duurrit', 60, phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote])
     : commute('do-terug', 'Woon-werk terug', phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote]));
   if (phase === 'race') w[3].forEach(s => s.optional = true);
+  if (k4 && (pre || (mar && wtr > 8))) w[3].push(upperCore(pre ? kSets : 2));
 
   // Vrijdag
   if (pre) {
-    if (!c.tuneup) w[4].push(strengthB(deload || c.postRace ? 2 : 3, c.knee));
+    if (!c.tuneup) w[4].push(k4 ? gluteSession(kSets, c.knee) : strengthB(kSets, c.knee));
     w[4].push(easyRun('vr-rec', 'Herstelloop', 30, { optional: true, pace: P.rec, extra: ['Alleen als de benen goed voelen. Anders overslaan, dat is ook prima.'] }));
   } else if (mar || phase === 'taper') w[4].push(easyRun('vr-ez', 'Rustige loop + strides', mar && !deload ? 45 : 35, { strides: true }));
   else w[4].push(mobility('vr-mob', 'Rust / mobiliteit'));
@@ -904,12 +961,16 @@ function moveAdvice(s, w, to) {
   if (s.sport !== 'strength') return '';
   const has = (i, f) => i >= 0 && i < 7 && w[i].some(f);
   const long = x => x.id === 'za-lr' || x.race;
-  if (has(to + 1, long)) return '⚠ dag voor je lange duurloop of wedstrijd';
+  // Alleen beensessies botsen met lopen; bovenlijf kan bijna altijd
+  if (has(to, x => x.sport === 'strength')) return '⚠ al een krachtsessie op die dag';
+  if (!s.legs) return '✓ goede dag';
   if (has(to, long)) return '⚠ zelfde dag als je lange duurloop of wedstrijd';
+  const legs = x => x.sport === 'strength' && x.legs;
+  if (has(to - 1, legs) || has(to + 1, legs)) return '⚠ te dicht op je andere beensessie';
+  if (s.legs === 'light') return '✓ goede dag';
+  if (has(to + 1, long)) return '⚠ dag voor je lange duurloop of wedstrijd';
   if (has(to - 1, long)) return '⚠ dag na je lange duurloop of wedstrijd';
-  const strength = x => x.sport === 'strength';
-  if (has(to, strength) || has(to - 1, strength) || has(to + 1, strength)) return '⚠ te dicht op je andere krachtsessie';
-  if (s.id === 'krachtA' && has(to + 2, long)) return '⚠ minder dan 48 u voor je lange duurloop';
+  if (has(to + 2, long)) return '⚠ minder dan 48 u voor je lange duurloop';
   if (has(to + 1, x => x.id === 'do-terug' && /sweet/.test(x.title))) return '✓ kan · rij de sweet spot de dag erna op gevoel';
   if (has(to + 1, x => x.id === 'di-iv' && x.title.startsWith('Interval'))) return '⚠ dag voor je intervallen';
   return '✓ goede dag';

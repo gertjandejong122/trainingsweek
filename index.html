@@ -334,10 +334,12 @@ const DEFAULT_EXERCISES = [
   { id: 'bss', name: 'Bulgarian split squat', type: 'kg', active: true },
   { id: 'rdl', name: 'Romanian deadlift', type: 'kg', active: true },
   { id: 'calf', name: 'Eenbenige kuitheffing', type: 'kg', active: true },
-  { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true }
+  { id: 'rlunge', name: 'Reverse lunge', type: 'kg', active: true },
+  { id: 'ht', name: 'Hip thrust', type: 'kg', active: true },
+  { id: 'slgb', name: 'Eenbenige glute bridge rechts', type: 'reps', active: true }
 ];
-const EXERCISES_VERSION = 6;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [] };
+const EXERCISES_VERSION = 7;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [], 7: ['ht', 'slgb'] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
@@ -420,7 +422,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-25a';
+const APP_VERSION = '2026-10-26a';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -548,8 +550,8 @@ function context(mon) {
 }
 
 function mobility(id, title = 'Mobiliteit', dur = 10) {
-  return { id, sport: 'mobility', title, dur, summary: 'Heupen, hamstrings, kuiten',
-    details: ['Couch stretch 2 × 45 s per kant.', '90/90 heupen 2 × 8.', 'Kuitstretch tegen de muur 2 × 45 s, met gestrekte en gebogen knie.', 'Thoracale rotatie 2 × 8 per kant.', dur > 10 ? 'Foamrollen: kuiten, quads en bilspieren, 1 min per spiergroep.' : null].filter(Boolean) };
+  return { id, sport: 'mobility', title, dur, summary: 'Heupen, hamstrings, kuiten + bilspieren',
+    details: [GLUTE_CUE_SHORT, 'Couch stretch 2 × 45 s per kant.', '90/90 heupen 2 × 8.', 'Kuitstretch tegen de muur 2 × 45 s, met gestrekte en gebogen knie.', 'Thoracale rotatie 2 × 8 per kant.', dur > 10 ? 'Foamrollen: kuiten, quads en bilspieren, 1 min per spiergroep.' : null].filter(Boolean) };
 }
 function commute(id, title, easy, extra = []) {
   const [lo, hi, z] = easy ? [55, 70, 'Z1–Z2'] : [65, 75, 'Z2'];
@@ -576,7 +578,11 @@ function easyRun(id, title, dur, opts = {}) {
 const PROGRESSIE = 'Progressie: haal je bij alle sets de bovenkant van de herhalingsrange, ga dan de volgende keer 1–2 kg zwaarder. Zit je op het zwaarste dumbbellgewicht? Maak het zwaarder met 3 s zakken of 1 s pauze onderin.';
 
 // Knie-protocol: tijdelijk knievriendelijke varianten + stabiliteitsblok voor heup en knie
-const KNEE_PREHAB = 'Knie-stabiliteit (6–8 min, vóór de benen): eenbenige glute bridge 2 × 12 per been · zijlig heupabductie 2 × 15 per been (langzaam, teen iets omlaag) · lateral step-down van een traptrede 2 × 8 per been, 3 s zakken, knie boven je 2e teen · wall sit 2 × 45 s.';
+// Rechter bilspier zwak (25-10-2026): eenbenige glute bridge rechts haalt 2 × 12, maar de hamstring net boven de knie neemt het over
+const GLUTE_CUE = 'Techniek glute bridge: voeten dichter bij je billen, ribben omlaag en bekken licht kantelen, dan éérst de bil aanspannen en daarna omhoog. Duw door je hele voet, niet alleen de hak. Voel je hem achter net boven je knie? Dan nemen je hamstrings het over: voeten nog iets dichterbij en minder hoog komen.';
+const GLUTE_CUE_SHORT = 'Bilspieren activeren: eenbenige glute bridge 2 × 30 s vasthouden per been, rechts eerst. Voeten dicht bij je billen, je moet het in je bil voelen, niet achter je knie.';
+const KNEE_PREHAB = 'Knie-stabiliteit en bilspieren (8–10 min, vóór de benen). Bij elke eenbenige oefening begint rechts, en links doet evenveel herhalingen: eenbenige glute bridge 3 × 10–12 per been, 2 s vasthouden boven (log rechts als "Eenbenige glute bridge rechts") · zijlig heupabductie 2 × 15 per been (langzaam, teen iets omlaag) · lateral step-down van een traptrede 2 × 8 per been, 3 s zakken, knie boven je 2e teen · wall sit 2 × 45 s. ' + GLUTE_CUE;
+const hipThrust = sets => `Hip thrust: ${sets} × 8–12, schouders op de bank, DB 30 kg (of KB 24 kg) op je heupen met een handdoek ertussen. 2 s vasthouden boven, kin op je borst. Dé oefening voor je bilspieren en knievriendelijk. Haal je alle sets met 12 herhalingen? Dan zwaarder of 3 s zakken.`;
 const KNEE_CHECK = 'Knie-check: is het verschuif-gevoel er na 3–4 weken nog, of krijg je pijn, zwelling of het gevoel dat de knie wegzakt? Laat hem dan nakijken door een sportfysio.';
 const kneeLunge = sets => `Reverse lunge (tijdelijk in plaats van de Bulgarian split squat): ${sets} × 8 per been, 2 × 16–20 kg, 3 s zakken. Romp licht voorover, voorste knie boven je 2e teen. Zak alleen zo diep als zonder verschuif-gevoel gaat.`;
 
@@ -595,6 +601,7 @@ function strengthA(sets, mode, knee) {
         `Plyometrie: pogo jumps ${light ? 2 : 3} × 15${light ? '' : ', box jumps 2 × 5'}. Kort en snappy.`,
         knee ? kneeLunge(sets) : `Bulgarian split squat: ${sets} × ${light ? 6 : 5} per been, ${light ? '2 × 16–20 kg' : 'zwaar, 2 × 25–30 kg'}.`,
         `Romanian deadlift: ${sets} × 6, ${light ? '2 × 20 kg' : '2 × 30 kg'}.`,
+        light ? null : hipThrust(sets),
         `Eenbenige kuitheffing: ${sets} × 12 per been met DB, de helft met gebogen knie.`,
         `Pull-ups: ${sets} × max − 2.`,
         `Bench press óf shoulder press (wissel per week): ${sets} × 8.`,
@@ -606,7 +613,7 @@ function strengthA(sets, mode, knee) {
     };
   }
   return {
-    id: 'krachtA', sport: 'strength', dur: sets === 2 ? 35 : 50,
+    id: 'krachtA', sport: 'strength', dur: sets === 2 ? 40 : 55,
     title: 'Kracht A · nadruk onderlijf',
     summary: `${sets} sets · ${knee ? 'knie-stabiliteit + ' : ''}plyometrie + zware benen + pull-ups`,
     details: [
@@ -615,6 +622,7 @@ function strengthA(sets, mode, knee) {
       `Plyometrie (eerst, nu je nog fris bent): pogo jumps ${sets} × 15, box jumps op kniehoogte ${sets} × 5 (stap naar beneden), ${knee ? 'geen eenbenige hops zolang het knie-protocol loopt' : 'eenbenige hops 2 × 10 per been'}. Volledig herstel, maximale veerkracht.`,
       knee ? kneeLunge(sets) : `Bulgarian split squat: ${sets} × 6–8 per been, 2 × 25–30 kg, 2 min rust.`,
       `Romanian deadlift: ${sets} × 6–8, 2 × 30 kg, 3 s zakken.`,
+      hipThrust(sets),
       `Eenbenige kuitheffing: ${sets} × 10–12 per been met DB 30 kg, de helft met gebogen knie (soleus).`,
       `Pull-ups: ${sets} × max − 2 (stop 2 herhalingen voor falen).`,
       `Copenhagen plank: ${sets} × 20 s per kant.`,
@@ -639,7 +647,8 @@ function strengthB(sets, knee) {
       `Eenarmig roeien: ${sets} × 10 per arm, DB 30 kg (balans met al het drukken).`,
       `Tricep dips: ${sets} × max − 2.`,
       `Lateral raise: ${sets - 1} × 12–15, licht (6–10 kg), gecontroleerd.`,
-      knee ? 'Knie-stabiliteit (in plaats van step-ups): eenbenige glute bridge 2 × 12 · zijlig heupabductie 2 × 15 · lateral step-down 2 × 8 per been, 3 s zakken.'
+      `Eenbenige hip thrust (schouders op de bank, zonder gewicht): ${sets} × 8–10 per been, 2 s vasthouden boven. Rechts eerst, links doet evenveel. Gaat rechts 3 × 10 strak? Leg dan een DB van 10–16 kg op je heup.`,
+      knee ? 'Knie-stabiliteit (in plaats van step-ups): zijlig heupabductie 2 × 15 · lateral step-down 2 × 8 per been, 3 s zakken.'
         : 'Step-up (kniehoogte): 2 × 8 per been, licht en snel omhoog. Geen spierpijn voor zaterdag.',
       'Side plank: 2 × 30 s per kant.',
       PROGRESSIE

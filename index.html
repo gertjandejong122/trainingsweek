@@ -422,7 +422,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-26b';
+const APP_VERSION = '2026-10-27';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -1128,7 +1128,7 @@ function openSession(date, id) {
   const existing = getLog(date + '|' + id);
   const lg = existing || {};
   const hasDist = s.sport === 'run' || s.sport === 'bike';
-  cur = { date, id, status: lg.status || 'done', feel: lg.feel || 0 };
+  cur = { date, id, status: lg.status || 'done', feel: lg.feel || 0, rpeTouched: lg.rpe !== undefined };
   $('#dlgBody').innerHTML = `
     <div class="sub" style="color:${colorOf(s)}">${s.race ? 'Wedstrijd' : SPORT[s.sport].l} · ${DAYS[idx]} ${d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })}${s.optional ? ' · optioneel' : ''}</div>
     <h3>${esc(s.title)}</h3>
@@ -1154,7 +1154,7 @@ function openSession(date, id) {
   syncForm();
   $('#fStatus').onclick = e => { const v = e.target.dataset.v; if (v) { cur.status = v; syncForm() } };
   $('#fFeel').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (v) { cur.feel = cur.feel === +v ? 0 : +v; syncForm() } };
-  $('#fRpe').oninput = syncForm;
+  $('#fRpe').oninput = () => { cur.rpeTouched = true; syncForm() };
   $('#fCancel').onclick = () => $('#dlg').close();
   $('#fSave').onclick = saveLog;
   if (existing) $('#fClear').onclick = () => { tombstone(date + '|' + id); persist(); $('#dlg').close(); render() };
@@ -1176,7 +1176,7 @@ function syncForm() {
   document.querySelectorAll('#fStatus button').forEach(b => b.classList.toggle('on', b.dataset.v === cur.status));
   document.querySelectorAll('#fFeel button').forEach(b => b.classList.toggle('on', +b.dataset.v === cur.feel));
   const r = +$('#fRpe').value;
-  $('#rpeV').textContent = r + ' · ' + ['', 'heel licht', 'heel licht', 'licht', 'gemiddeld', 'gemiddeld', 'pittig', 'zwaar', 'zwaar', 'bijna maximaal', 'maximaal'][r];
+  $('#rpeV').textContent = cur.rpeTouched ? r + ' · ' + ['', 'heel licht', 'heel licht', 'licht', 'gemiddeld', 'gemiddeld', 'pittig', 'zwaar', 'zwaar', 'bijna maximaal', 'maximaal'][r] : '– (nog niet ingesteld)';
 }
 
 function saveLog() {
@@ -1184,7 +1184,7 @@ function saveLog() {
   const skipped = cur.status === 'skipped';
   logs[cur.date + '|' + cur.id] = {
     status: cur.status,
-    rpe: skipped ? undefined : +$('#fRpe').value,
+    rpe: skipped || !cur.rpeTouched ? undefined : +$('#fRpe').value,
     feel: cur.feel || undefined,
     duration: skipped ? undefined : num('fDur'),
     distance: skipped ? undefined : num('fDist'),

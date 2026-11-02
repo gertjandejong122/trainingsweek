@@ -60,6 +60,11 @@ main{max-width:1500px;margin:0 auto;padding:8px 24px 48px}
 .dayhead span{color:var(--muted);font-size:12px}
 .homebtn{font:inherit;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer;margin-left:auto;margin-right:6px}
 .homebtn.on{color:var(--accent);border-color:var(--accent)}
+.dayhead{flex-wrap:wrap;row-gap:4px}
+.dayhead .dbtns{margin-left:auto;display:flex;gap:4px;font-size:11px;color:inherit;font-weight:400}
+.dbtns .homebtn{margin:0;white-space:nowrap}
+.sickbtn{opacity:.5}
+.sickbtn.on{opacity:1;color:var(--bad);border-color:var(--bad)}
 .today .dayhead span{color:var(--accent);font-weight:600}
 .rest{color:var(--muted);font-size:12.5px;font-style:italic;padding:4px 2px}
 .card{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:9px;padding:8px 10px;cursor:pointer;transition:transform .08s,border-color .08s}
@@ -338,8 +343,8 @@ const DEFAULT_EXERCISES = [
   { id: 'ht', name: 'Hip thrust', type: 'kg', active: true },
   { id: 'slgb', name: 'Eenbenige glute bridge rechts', type: 'reps', active: true }
 ];
-const EXERCISES_VERSION = 7;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [], 7: ['ht', 'slgb'] };
+const EXERCISES_VERSION = 8;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [], 7: ['ht', 'slgb'], 8: [] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
@@ -357,6 +362,8 @@ function migrateSettings() {
   if (from < 5 && settings.homeDates === undefined) settings.homeDates = { '2026-10-26': true, '2026-10-29': true };
   // v6: herstelrit van 25-10-2026 werd een loop op de loopband (slecht weer)
   if (from < 6 && !swaps['2026-10-25|zo-rit']) swaps['2026-10-25|zo-rit'] = { sport: 'run', saved: new Date().toISOString() };
+  // v8: ziek op 02-11-2026 (flinke keelpijn sinds 01-11)
+  if (from < 8 && settings.sickDates === undefined) settings.sickDates = { '2026-11-02': true };
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
@@ -422,7 +429,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-10-27';
+const APP_VERSION = '2026-11-02';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -951,7 +958,49 @@ function weekPlan(mon) {
       w[to].push({ ...s, movedFrom: orig });
     }
   }
+  for (let i = 0; i < 7; i++) w[i] = applySick(w[i], ymd(addDays(mon, i)));
   return w;
+}
+
+// Ziek (vanaf 02-11-2026): ziektedag = alleen rustige mobiliteit. Daarna 2 terugkeerdagen zonder intensiteit,
+// en tot 5 dagen na de laatste ziektedag een waarschuwing bij zware sessies. Al gelogde sessies blijven staan.
+const isSick = date => !!(settings.sickDates || {})[date];
+function daysSinceSick(date) {
+  if (isSick(date)) return 0;
+  for (let n = 1; n <= 5; n++) if (isSick(ymd(addDays(parseYmd(date), -n)))) return n;
+  return null;
+}
+const isHard = s => !s.race && (s.id === 'di-iv' && !/herstel/i.test(s.title) || s.id === 'za-lr' && /tempo|×/i.test(s.title) || s.sport === 'bike' && /sweet|FTP|VO2|drempel/i.test(s.title));
+const SICK_RULE = 'Vuistregel: alleen klachten boven de nek (keel, neus)? Dan mag rustig bewegen. Koorts, spierpijn, hoesten op de borst of je algeheel ziek voelen? Dan volledige rust en pas trainen als je 24 u koortsvrij bent.';
+function applySick(day, date) {
+  const n = daysSinceSick(date);
+  if (n === null) return day;
+  const logged = s => { const l = getLog(date + '|' + s.id); return l && l.status !== 'skipped' };
+  if (n === 0) {
+    const keep = day.filter(logged);
+    return [...keep, { id: 'ziek-mob', sport: 'mobility', title: 'Ziek · rustige mobiliteit', dur: 15, summary: 'Geen training. Rustige mobiliteit en eventueel wandelen',
+      details: ['Vandaag geen training. Herstel gaat voor: rust, veel drinken, goed slapen.', SICK_RULE,
+        'Rustige mobiliteit, alles zonder inspanning: 90/90 heupen 2 × 8, couch stretch 2 × 45 s per kant, kuitstretch 2 × 45 s, thoracale rotatie 2 × 8 per kant, cat-cow 10 ×.',
+        'Glute bridge-hold 2 × 30 s per been (rechts eerst) mag, dat is licht genoeg en houdt de bilspier-activatie gaande.',
+        'Voel je je goed genoeg, dan mag je 20–30 min buiten wandelen. Hartslag laag houden.',
+        'Nog ziek morgen? Zet die dag ook op 🤒. De terugkeerdagen schuiven dan vanzelf op.'] }];
+  }
+  return day.map(s => {
+    if (logged(s)) return s;
+    if (n <= 2 && isHard(s)) {
+      if (s.sport === 'run') {
+        const dur = s.id === 'za-lr' ? Math.round(s.dur * 0.75) : Math.min(s.dur, 40);
+        return easyRun(s.id, (s.id === 'za-lr' ? 'Rustige duurloop' : 'Rustige loop') + ' (na ziekte)', dur,
+          { extra: [`Terugkeerdag ${n} na ziekte: ${s.title.toLowerCase()} vervalt. Niet inhalen, het blok loopt gewoon door.`, 'Voelt het zwaar of komt de keelpijn terug? Stop en neem nog een dag rust.', SICK_RULE] });
+      }
+      if (s.sport === 'bike') return { ...s, title: s.title.replace(/sweet spot.*|FTP-test.*|VO2.*|drempel.*/i, '') + 'rustig (na ziekte)', summary: `${s.km} km · Z1–Z2 55–70% FTP${watts(55, 70)}`,
+        details: [`Terugkeerdag ${n} na ziekte: geen blokken, alles in Z1–Z2.`, 'Wind tegen of je voelt je slap? Dan liever met de auto of de trein.', SICK_RULE] };
+    }
+    if (n <= 2 && s.sport === 'strength') return { ...s, title: s.title + ' (licht)', summary: s.summary.replace(/^\d rondes/, '2 rondes').replace(/plyometrie \+ /, ''), details: [`Terugkeerdag ${n} na ziekte: 2 rondes in plaats van 3, geen plyometrie, nergens tot falen. Voel je je slap? Overslaan.`, ...s.details] };
+    if (n <= 2 && s.sport === 'run') return { ...s, summary: s.summary.replace(/ \+ 6 × 20 s strides/, ''), details: [`Terugkeerdag ${n} na ziekte: rustig houden, strides overslaan. Hartslag ligt de eerste dagen vaak 5–10 slagen hoger.`, ...s.details] };
+    if (isHard(s)) return { ...s, details: [`${n} dagen na ziekte: doe de intensieve delen alleen als je minstens 48 u klachtenvrij bent en de rustige lopen normaal voelden (hartslag niet verhoogd). Twijfel? Dan rustig, zonder tempo.`, ...s.details] };
+    return s;
+  });
 }
 function sessionFor(date, id) {
   return weekPlan(monday(parseYmd(date)))[weekday(date)].find(x => x.id === id);
@@ -1026,7 +1075,8 @@ function renderWeek() {
   p.forEach((sessions, i) => {
     const day = addDays(viewMon, i), date = ymd(day);
     const homeBtn = i === 0 || i === 3 ? `<button type="button" class="homebtn${isHome(date) ? ' on' : ''}" data-date="${date}" title="Klik om te wisselen tussen thuiswerken en naar kantoor fietsen">${isHome(date) ? '🏠 thuis' : '🚲 kantoor'}</button>` : '';
-    html += `<div class="day${date === today ? ' today' : ''}"><div class="dayhead"><b>${DAYS[i]}</b>${homeBtn}<span>${date === today ? 'vandaag' : fmt(day)}</span></div>`;
+    const sickBtn = `<button type="button" class="homebtn sickbtn${isSick(date) ? ' on' : ''}" data-date="${date}" title="Klik om deze dag als ziek te markeren">${isSick(date) ? '🤒 ziek' : '🤒'}</button>`;
+    html += `<div class="day${date === today ? ' today' : ''}${isSick(date) ? ' sick' : ''}"><div class="dayhead"><b>${DAYS[i]}</b><span class="dbtns">${homeBtn}${sickBtn}</span><span>${date === today ? 'vandaag' : fmt(day)}</span></div>`;
     if (!sessions.length) html += '<div class="rest">Rustdag</div>';
     sessions.forEach(s => {
       const lg = getLog(date + '|' + s.id);
@@ -1489,6 +1539,13 @@ $('#tabs').onclick = e => { const t = e.target.closest('button')?.dataset.tab; i
 document.addEventListener('click', e => {
   const tw = e.target.closest('.tw');
   if (tw) { viewMon = parseYmd(tw.dataset.mon); render(); return }
+  const sb = e.target.closest('.sickbtn');
+  if (sb) {
+    const sd = { ...(settings.sickDates || {}) };
+    if (sd[sb.dataset.date]) delete sd[sb.dataset.date]; else sd[sb.dataset.date] = true;
+    settings.sickDates = sd; settings.savedAt = new Date().toISOString();
+    persist(); render(); return;
+  }
   const hb = e.target.closest('.homebtn');
   if (hb) {
     const hd = { ...(settings.homeDates || {}) };

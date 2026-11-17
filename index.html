@@ -436,7 +436,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-11-17c';
+const APP_VERSION = '2026-11-17d';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -1548,7 +1548,7 @@ function prepHist(raw) {
 }
 async function loadHist() {
   if (!gist.id) { histState = 'nogist'; return }
-  histState = 'loading'; renderHist();
+  histState = 'loading'; if (tab === 'historie') renderHist();
   try {
     const f = (await gh('/gists/' + gist.id)).files['historie.json'];
     if (!f) { histState = 'missing'; return }
@@ -1556,7 +1556,47 @@ async function loadHist() {
     hist = prepHist(raw); histState = 'ok';
     try { localStorage.setItem(LS_HIST, JSON.stringify(raw)) } catch { }
   } catch (e) { histState = 'error'; histErr = e.message }
-  if (tab === 'historie') renderHist();
+  if (importGarmin()) { persist(); render() }
+  else if (tab === 'historie') renderHist();
+}
+// Gedane lopen en ritten uit Garmin (historie.json) automatisch loggen bij de geplande sessie van die dag.
+// Alleen sessies zonder log (ook geen verwijderde of overgeslagen log) en alleen de laatste 21 dagen; kracht en mobiliteit blijven handmatig.
+// Per sport worden activiteiten en sessies op volgorde gekoppeld (heen/terug); meer activiteiten dan sessies worden bij de laatste opgeteld.
+// Heb je een andere sport gedaan dan gepland (bijv. een loop in plaats van een rit) en is die sessie te wisselen, dan wordt hij ⇄ omgezet.
+// Status: deels als de duur < 75% van de planning is.
+function importGarmin() {
+  if (!hist) return false;
+  const today = ymd(new Date()), from = ymd(addDays(new Date(), -21)), byDay = {};
+  hist.acts.forEach(a => { if (a.sport !== 'run' && a.sport !== 'bike' || !a.min) return; const d = a.datum.slice(0, 10); if (d >= from && d <= today) (byDay[d] = byDay[d] || []).push(a) });
+  const sum = arr => { const min = arr.reduce((t, a) => t + a.min, 0), w = f => { const v = arr.filter(a => a[f]); return v.length ? v.reduce((t, a) => t + a[f] * a.min, 0) / v.reduce((t, a) => t + a.min, 0) : null };
+    return { min, km: arr.reduce((t, a) => t + (a.km || 0), 0), hr: w('hr'), np: arr.length > 1 ? null : arr[0].np, avgW: w('avgW') } };
+  const write = (k, x, a) => { logs[k] = { status: a.min >= 0.75 * x.dur ? 'done' : 'partial', duration: Math.round(a.min), distance: a.km ? Math.round(a.km * 10) / 10 : undefined,
+    hr: a.hr ? Math.round(a.hr) : undefined, power: x.sport === 'bike' && (a.np || a.avgW) ? Math.round(a.np || a.avgW) : undefined, src: 'garmin', saved: new Date().toISOString() } };
+  let n = 0;
+  for (const [date, list] of Object.entries(byDay)) {
+    const plan = weekPlan(monday(parseYmd(date)))[weekday(date)], hadAct = {};
+    for (const sport of ['run', 'bike']) {
+      const sess = plan.filter(x => x.sport === sport), acts = list.filter(a => a.sport === sport);
+      hadAct[sport] = acts.length;
+      if (!acts.length || !sess.length) continue;
+      sess.forEach((x, i) => {
+        const group = i === sess.length - 1 ? acts.slice(i) : acts.slice(i, i + 1);
+        if (!group.length || date + '|' + x.id in logs) return;
+        write(date + '|' + x.id, x, sum(group)); n++;
+      });
+    }
+    // Andere sport gedaan dan gepland: eerste ongelogde, te wisselen sessie van de andere sport omzetten
+    for (const sport of ['run', 'bike']) {
+      const acts = list.filter(a => a.sport === sport);
+      if (!acts.length || plan.some(x => x.sport === sport)) continue;
+      const other = sport === 'run' ? 'bike' : 'run';
+      const x = plan.filter(y => y.sport === other && canSwap(y)).find((y, i) => !((y.movedFrom || date) + '|' + y.id in swaps) && !(date + '|' + y.id in logs) && i >= (hadAct[other] || 0));
+      if (!x) continue;
+      swaps[(x.movedFrom || date) + '|' + x.id] = { sport, saved: new Date().toISOString() };
+      write(date + '|' + x.id, swapSport(x), sum(acts)); n++;
+    }
+  }
+  return n > 0;
 }
 const hMonday = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x };
 const hAdd = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -1780,7 +1820,7 @@ $('#sGistOff').onclick = () => {
   if (confirm('GitHub ontkoppelen in deze browser? Je gegevens blijven in deze browser en in de Gist staan.')) disconnectGist();
 };
 // Wijzigingen van het andere apparaat ophalen zodra je terugkomt in dit tabblad
-const pullSoon = () => { if (gist.id && !document.hidden && (!lastSync || Date.now() - lastSync > 15000)) syncGist() };
+const pullSoon = () => { if (gist.id && !document.hidden && (!lastSync || Date.now() - lastSync > 15000)) { syncGist().then(loadHist) } };
 window.addEventListener('focus', pullSoon);
 document.addEventListener('visibilitychange', pullSoon);
 $('#sRaces').onclick = e => { if (e.target.classList.contains('rx')) e.target.closest('.race-row').remove() };
@@ -1827,7 +1867,7 @@ $('#sReset').onclick = () => { if (confirm('Alle gelogde trainingen wissen?')) {
 
 showTab(tab);
 renderStorage();
-syncGist();
+syncGist().then(loadHist);
 </script>
 </body>
 </html>

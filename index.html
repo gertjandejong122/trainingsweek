@@ -436,7 +436,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-11-17';
+const APP_VERSION = '2026-11-17b';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -1590,6 +1590,7 @@ function histLine(el, pts, color, fmt) {
   el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
 }
 
+const P20_EXCLUDE = ['2022-03-29 15:36'];
 function histPRs(acts) {
   const runs = acts.filter(a => a.sport === 'run' && a.km >= 1 && a.min && a.pace && a.pace > 2.5 && a.pace < 9); // pace < 2:30/km = GPS-fout
   const bikes = acts.filter(a => a.sport === 'bike');
@@ -1613,8 +1614,14 @@ function histPRs(acts) {
     prs.push({ g: 'bike', t: 'Langste rit', big: hn(lb.km, 0) + ' km', sub: `${hDur(lb.min)} · ${hn(lb.speed, 1)} km/u`, date: lb.date });
     const lt = bikes.filter(a => a.min).reduce((m, a) => a.min > m.min ? a : m);
     prs.push({ g: 'bike', t: 'Langste rit (tijd)', big: hDur(lt.min), sub: `${hn(lt.km, 0)} km`, date: lt.date });
-    const ok = bikes.filter(a => a.p20 && a.p20 < 450); // > 450 W = vermogensmeter-spike
-    if (ok.length) { const b = ok.reduce((m, a) => a.p20 > m.p20 ? a : m); prs.push({ g: 'bike', t: 'Beste 20 min vermogen', big: b.p20 + ' W', sub: `${hn(b.km, 0)} km · ondergrens FTP ≈ ${Math.round(b.p20 * 0.95)} W`, date: b.date }) }
+    // > 450 W = vermogensmeter-spike; de rit van 29-03-2022 (388 W bij 32,7 km/u, niet te verifiëren) is op verzoek van de user uitgesloten
+    const ok = bikes.filter(a => a.p20 && a.p20 < 450 && !P20_EXCLUDE.includes(a.datum));
+    if (ok.length) {
+      const b = ok.reduce((m, a) => a.p20 > m.p20 ? a : m);
+      prs.push({ g: 'bike', t: 'Beste 20 min vermogen', big: b.p20 + ' W', sub: `${hn(b.km, 0)} km · ${b.date.getFullYear()}`, date: b.date });
+      const yr = ok.filter(a => (acts[acts.length - 1].date - a.date) / 864e5 <= 365);
+      if (yr.length) { const y = yr.reduce((m, a) => a.p20 > m.p20 ? a : m); prs.push({ g: 'bike', t: 'Beste 20 min laatste 12 maanden', big: y.p20 + ' W', sub: `${hn(y.km, 0)} km · uit een gewone rit, dus een ondergrens (FTP staat vast op 310 W)`, date: y.date }) }
+    }
     const nps = bikes.filter(a => a.np && a.np < 450 && a.min >= 45); if (nps.length) { const b = nps.reduce((m, a) => a.np > m.np ? a : m); prs.push({ g: 'bike', t: 'Hoogste NP (rit ≥ 45 min)', big: b.np + ' W', sub: `${hn(b.km, 0)} km in ${hDur(b.min)}`, date: b.date }) }
     const cl = bikes.filter(a => a.up).reduce((m, a) => !m || a.up > m.up ? a : m, null); if (cl) prs.push({ g: 'bike', t: 'Meeste hoogtemeters', big: hn(cl.up, 0) + ' m', sub: `${hn(cl.km, 0)} km`, date: cl.date });
     const wb = best(bucket(bikes, d => +hMonday(d))); prs.push({ g: 'bike', t: 'Meeste fiets-km in een week', big: hn(wb[1], 0) + ' km', sub: 'week van ' + hDate(new Date(wb[0])), date: new Date(wb[0] + 6 * 864e5) });

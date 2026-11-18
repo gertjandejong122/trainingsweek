@@ -445,6 +445,9 @@ const gistBody = () => JSON.stringify({ ...remoteExtra, app: 'trainingsweek', ve
 // Weekfeedback van de coach staat in een apart bestand in dezelfde Gist; het dashboard leest het alleen
 const COACH_FILE = 'coachfeedback.json', LS_COACH = 'tw_coach';
 let coach = load(LS_COACH, {}); // maandag 'YYYY-MM-DD' → { written, summary, good[], improve[], progress[], focus[] }
+// Starttijden uit de iCloud-agenda (agenda_sync.sh schrijft agendatijden.json); het dashboard leest ze alleen
+const TIMES_FILE = 'agendatijden.json', LS_TIMES = 'tw_times';
+let agendaTimes = load(LS_TIMES, {}); // { updated, times: { 'YYYY-MM-DD|sessieId': 'HH:mm' } }
 const fileText = async f => f.truncated ? (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
 async function readGist() {
   const files = (await gh('/gists/' + gist.id)).files;
@@ -453,6 +456,12 @@ async function readGist() {
       const c = JSON.parse(await fileText(files[COACH_FILE]));
       if (JSON.stringify(c) !== JSON.stringify(coach)) { coach = c; localStorage.setItem(LS_COACH, JSON.stringify(coach)); render() }
     } catch (e) { console.error('coachfeedback onleesbaar', e) }
+  }
+  if (files[TIMES_FILE]) {
+    try {
+      const t = JSON.parse(await fileText(files[TIMES_FILE]));
+      if (JSON.stringify(t.times) !== JSON.stringify(agendaTimes.times)) { agendaTimes = t; localStorage.setItem(LS_TIMES, JSON.stringify(agendaTimes)); render() }
+    } catch (e) { console.error('agendatijden onleesbaar', e) }
   }
   const f = files[GIST_FILE];
   if (!f) return null;
@@ -1035,10 +1044,11 @@ const colorOf = s => s.race ? 'var(--race)' : SPORT[s.sport].c;
 
 function cardHtml(s, date, lg) {
   const st = lg ? lg.status : null;
+  const tm = (agendaTimes.times || {})[date + '|' + s.id];
   return `<div class="card ${st ? 'is' + st : ''}${s.race ? ' race' : ''}" style="--c:${colorOf(s)}" data-date="${date}" data-id="${s.id}">
     <div class="t"><span>${esc(s.title)}</span><span class="dur">${s.dur} min</span></div>
     <div class="s">${esc(s.summary)}</div>
-    <div class="meta">${s.optional ? '<span class="chip">optioneel</span>' : ''}${s.movedFrom ? `<span class="chip">↷ van ${DAYS[weekday(s.movedFrom)].slice(0, 2).toLowerCase()}</span>` : ''}${s.swappedFrom ? `<span class="chip">⇄ was ${s.swappedFrom === 'bike' ? 'fietsen' : 'lopen'}</span>` : ''}${st ? `<span class="chip ${st}">${STATUS[st]}</span>` : ''}${lg && lg.rpe ? `<span class="chip">RPE ${lg.rpe}</span>` : ''}${lg && lg.feel ? `<span class="chip">${FEEL[lg.feel]}</span>` : ''}</div>
+    <div class="meta">${tm ? `<span class="chip">🕒 ${esc(tm)}</span>` : ''}${s.optional ? '<span class="chip">optioneel</span>' : ''}${s.movedFrom ? `<span class="chip">↷ van ${DAYS[weekday(s.movedFrom)].slice(0, 2).toLowerCase()}</span>` : ''}${s.swappedFrom ? `<span class="chip">⇄ was ${s.swappedFrom === 'bike' ? 'fietsen' : 'lopen'}</span>` : ''}${st ? `<span class="chip ${st}">${STATUS[st]}</span>` : ''}${lg && lg.rpe ? `<span class="chip">RPE ${lg.rpe}</span>` : ''}${lg && lg.feel ? `<span class="chip">${FEEL[lg.feel]}</span>` : ''}</div>
     ${lg && lg.notes ? `<div class="note">“${esc(lg.notes)}”</div>` : ''}
   </div>`;
 }

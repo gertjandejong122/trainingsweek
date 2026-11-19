@@ -436,7 +436,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-11-17d';
+const APP_VERSION = '2026-11-19a';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -975,6 +975,7 @@ function weekPlan(mon) {
     }
   }
   for (let i = 0; i < 7; i++) w[i] = applySick(w[i], ymd(addDays(mon, i)));
+  for (let i = 0; i < 7; i++) w[i] = applyBusy(w[i], ymd(addDays(mon, i)));
   return w;
 }
 
@@ -1015,6 +1016,25 @@ function applySick(day, date) {
     if (n <= 2 && s.sport === 'strength') return { ...s, title: s.title + ' (licht)', summary: s.summary.replace(/^\d rondes/, '2 rondes').replace(/plyometrie \+ /, ''), details: [`Terugkeerdag ${n} na ziekte: 2 rondes in plaats van 3, geen plyometrie, nergens tot falen. Voel je je slap? Overslaan.`, ...s.details] };
     if (n <= 2 && s.sport === 'run') return { ...s, summary: s.summary.replace(/ \+ 6 × 20 s strides/, ''), details: [`Terugkeerdag ${n} na ziekte: rustig houden, strides overslaan. Hartslag ligt de eerste dagen vaak 5–10 slagen hoger.`, ...s.details] };
     if (isHard(s)) return { ...s, details: [`${n} dagen na ziekte: doe de intensieve delen alleen als je minstens 48 u klachtenvrij bent en de rustige lopen normaal voelden (hartslag niet verhoogd). Twijfel? Dan rustig, zonder tempo.`, ...s.details] };
+    return s;
+  });
+}
+// Drukke klusperiode (verbouwing) 19-11 t/m 29-11-2026: alleen de sleutelsessies. Kracht (behalve bilspieren/knie), optionele
+// sessies en de M-tempo's vervallen, de lange duurloop is rustig en maximaal 80 min, de rustige duurloop maximaal 40 min.
+// Woon-werk en intervallen blijven. Vanaf 30-11 geldt het gewone schema weer. Al gelogde sessies blijven staan.
+const BUSY_FROM = '2026-11-19', BUSY_UNTIL = '2026-11-30';
+const BUSY_NOTE = 'Drukke klusperiode t/m 29-11: ingekort, vanaf 30-11 weer het volledige schema.';
+function applyBusy(day, date) {
+  if (date < BUSY_FROM || date >= BUSY_UNTIL) return day;
+  const logged = s => { const l = getLog(date + '|' + s.id); return l && l.status !== 'skipped' };
+  return day.filter(s => logged(s) || !['kr-ma', 'kr-do', 'krachtA', 'vr-rec', 'zo-rit'].includes(s.id)).map(s => {
+    if (logged(s) || s.race) return s;
+    if (s.id === 'za-lr' && s.sport === 'run' && s.dur > 80) {
+      const r = easyRun('za-lr', 'Rustige duurloop', 80, { extra: [BUSY_NOTE, 'Geen M-tempo en geen 18–20 km: na ziekte en met weinig loopvolume bouw je rustig op.'] });
+      return { ...r, title: `Lange duurloop · ${r.km} km`, optional: false };
+    }
+    if (s.id === 'wo-ez' && s.sport === 'run' && s.dur > 40) return easyRun('wo-ez', s.title, 40, { strides: true, extra: [BUSY_NOTE] });
+    if (s.id === 'kr-vr') return { ...s, details: [BUSY_NOTE, ...(s.details || [])] };
     return s;
   });
 }

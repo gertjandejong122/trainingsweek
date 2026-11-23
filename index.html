@@ -350,8 +350,8 @@ const DEFAULT_EXERCISES = [
   { id: 'ht', name: 'Hip thrust', type: 'kg', active: true },
   { id: 'slgb', name: 'Eenbenige glute bridge rechts', type: 'reps', active: true }
 ];
-const EXERCISES_VERSION = 8;
-const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [], 7: ['ht', 'slgb'], 8: [] };
+const EXERCISES_VERSION = 9;
+const NEW_EXERCISES = { 2: ['bss', 'rdl', 'calf'], 3: ['rlunge'], 4: [], 5: [], 6: [], 7: ['ht', 'slgb'], 8: [], 9: [] };
 // Nieuwe standaardoefeningen toevoegen aan een bestaande lijst, zonder eigen aanpassingen te overschrijven
 function migrateSettings() {
   // Nieuw apparaat: standaardwaarden zonder savedAt, zodat de instellingen uit de Gist winnen
@@ -371,6 +371,13 @@ function migrateSettings() {
   if (from < 6 && !swaps['2026-10-25|zo-rit']) swaps['2026-10-25|zo-rit'] = { sport: 'run', saved: new Date().toISOString() };
   // v8: ziek op 02-11-2026 (flinke keelpijn sinds 01-11)
   if (from < 8 && settings.sickDates === undefined) settings.sickDates = { '2026-11-02': true };
+  // v9 (23-11-2026): herstart na ziekte/verbouwing. Blokstart 16-11 (lange duurloop herstart op 16 km i.p.v. 18),
+  // knieprotocol t/m week van 30-11 (geen kracht gedaan sinds 28-10, glute bridge-doel niet gehaald), FTP-test is afgeblazen.
+  if (from < 9) {
+    if (!settings.blockStart || settings.blockStart < '2026-11-16') settings.blockStart = '2026-11-16';
+    if (!settings.kneeUntil || settings.kneeUntil < '2026-12-07') settings.kneeUntil = '2026-12-07';
+    settings.ftpTestDate = '';
+  }
   settings.exV = EXERCISES_VERSION;
   settings.savedAt = new Date().toISOString();
 }
@@ -436,7 +443,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-11-19a';
+const APP_VERSION = '2026-11-23a';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven

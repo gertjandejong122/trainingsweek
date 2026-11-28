@@ -387,6 +387,53 @@ function migrateSettings() {
 const P = { easy: '4:45–5:15/km', rec: '5:10–5:30/km', m: '4:05–4:15/km', hm: '3:50–3:55/km', t: '3:42–3:48/km', i: '3:24–3:30/km', r: '3:15/km (78 s per 400 m)', strides: '~3:10/km' };
 const PACE = { I: ['I-tempo', P.i], T: ['T-tempo', P.t], R: ['R-tempo', P.r], M: ['M-tempo', P.m] };
 
+// Blokken voor Garmin-workouts (veld `blokken`, alleen gebruikt door de app). Alles in seconden, zodat het ook op de loopband werkt.
+// Doel: { tempo: [s/km snel, s/km langzaam] } bij lopen, { vermogen: [% FTP laag, % FTP hoog] } bij fietsen.
+function paceRange(p) {
+  const m = String(p).match(/(\d):(\d{2})(?:[–-](\d):(\d{2}))?\/km/);
+  const a = +m[1] * 60 + +m[2], b = m[3] ? +m[3] * 60 + +m[4] : a;
+  return a === b ? [a - 3, a + 3] : [Math.min(a, b), Math.max(a, b)];
+}
+const secKm = (km, p) => { const [a, b] = paceRange(p); return Math.round(km * (a + b) / 2) };
+const stap = (type, s, doel) => doel ? { type, s, doel } : { type, s };
+const doelTempo = p => ({ tempo: paceRange(p) });
+const doelWatt = (lo, hi) => ({ vermogen: [lo, hi] });
+// '2:30 dribbelen', '90 s dribbelen', '2 min dribbelen', '400 m dribbelen' -> seconden
+function restSec(t) {
+  let m;
+  if ((m = String(t).match(/^(\d+):(\d{2})/))) return +m[1] * 60 + +m[2];
+  if ((m = String(t).match(/^(\d+) s/))) return +m[1];
+  if ((m = String(t).match(/^(\d+) min/))) return +m[1] * 60;
+  if ((m = String(t).match(/^(\d+) m /))) return secKm(+m[1] / 1000, P.easy);
+  throw new Error('Onbekende rust: ' + t);
+}
+// Loopintervallen: inlopen, n × (werk, rust), uitlopen. set = '5 × 1000 m' of '4 × 2 km'
+function loopBlokken(set, key, rest) {
+  const [n, len, unit] = set.match(/(\d+) × ([\d.]+) (k?m)/).slice(1);
+  const km = +len / (unit === 'm' ? 1000 : 1);
+  return [stap('warm', 900, doelTempo(P.easy)),
+    { herhaal: +n, stappen: [stap('werk', secKm(km, PACE[key][1]), doelTempo(PACE[key][1])), stap('rust', restSec(rest), doelTempo(RUST_LOOP))] },
+    stap('koel', 600, doelTempo(P.easy))];
+}
+// Fietsblokken: inrijden, n × (werk, rust), uitrijden tot de totale duur (minstens 5 min)
+function fietsBlokken(set, lo, hi, restMin, totMin) {
+  const [n, len] = set.match(/(\d+) × (\d+) min/).slice(1).map(Number);
+  const koel = Math.max(300, totMin * 60 - 900 - n * (len + restMin) * 60);
+  return [stap('warm', 900, doelWatt(60, 75)),
+    { herhaal: n, stappen: [stap('werk', len * 60, doelWatt(lo, hi)), stap('rust', restMin * 60, doelWatt(40, 55))] },
+    stap('koel', koel, doelWatt(55, 70))];
+}
+// Lange duurloop: segmenten [km, tempo]; km null = de rest. tempo 'e' = rustig, anders een tempotekst uit P
+function langBlokken(totKm, segs) {
+  const vast = segs.reduce((t, [k]) => t + (k || 0), 0);
+  return segs.map(([k, t]) => {
+    const km = k ?? Math.round((totKm - vast) * 10) / 10, p = t === 'e' ? P.easy : t;
+    return stap(t === 'e' ? 'duur' : 'werk', secKm(km, p), doelTempo(p));
+  });
+}
+const E = 'e';
+const RUST_LOOP = '5:30–6:30/km'; // dribbelrust bij loopintervallen: niet sneller dan 5:30
+
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
@@ -443,7 +490,7 @@ async function gh(path, opts = {}) {
   return r.json();
 }
 // Versie van dit dashboardbestand. Ophogen bij elke wijziging, zodat andere apparaten zien dat ze moeten bijwerken.
-const APP_VERSION = '2026-11-23a';
+const APP_VERSION = '2026-11-28a';
 const KNOWN_KEYS = ['app', 'version', 'appVersion', 'settings', 'logs', 'lifts', 'moves', 'swaps'];
 let remoteExtra = {}, remoteVersion = '';
 // Onderdelen die een nieuwere versie toevoegde, blijven behouden bij het terugschrijven
@@ -757,7 +804,7 @@ function quality(c) {
   const workKm = +n * +len / (unit === 'm' ? 1000 : 1);
   const workMin = workKm * { I: 3.45, T: 3.75, M: 4.17, R: 3.25 }[key];
   return {
-    id: 'di-iv', sport: 'run', dur, km: halfKm(workKm + Math.max(0, dur - workMin) / 5.5),
+    id: 'di-iv', sport: 'run', dur, km: halfKm(workKm + Math.max(0, dur - workMin) / 5.5), blokken: loopBlokken(set, key, rest),
     title: (c.tuneup ? 'Scherp houden · ' : key === 'I' || key === 'R' ? 'Intervallen · ' : 'Tempo · ') + set,
     summary: `@ ${pl} ${pv}, ${rest}`,
     details: [
@@ -773,51 +820,51 @@ function quality(c) {
 
 const MARATHON_LR = {
   15: [26, '26 km rustig', `Alles @ ${P.easy}.`],
-  14: [28, '28 km, laatste 6 km @ M-tempo', `22 km @ ${P.easy}, dan 6 km @ ${P.m}.`],
-  13: [30, '30 km met 3 × 4 km @ M-tempo', `8 km rustig, 3 × 4 km @ ${P.m} met 1 km rustig ertussen, rest rustig.`],
+  14: [28, '28 km, laatste 6 km @ M-tempo', `22 km @ ${P.easy}, dan 6 km @ ${P.m}.`, [[22, E], [6, P.m]]],
+  13: [30, '30 km met 3 × 4 km @ M-tempo', `8 km rustig, 3 × 4 km @ ${P.m} met 1 km rustig ertussen, rest rustig.`, [[8, E], [4, P.m], [1, E], [4, P.m], [1, E], [4, P.m], [null, E]]],
   12: [22, '22 km rustig', 'Herstelweek.'],
-  11: [30, '30 km met 2 × 6 km @ M-tempo', `8 km rustig, 2 × 6 km @ ${P.m} met 2 km rustig ertussen, rest rustig.`],
-  10: [32, '32 km, laatste 5 km @ M-tempo', `27 km @ ${P.easy}, dan 5 km @ ${P.m}.`],
-  9: [30, '30 km met 14 km @ M-tempo', `8 km rustig, 14 km @ ${P.m}, 8 km uitlopen.`],
+  11: [30, '30 km met 2 × 6 km @ M-tempo', `8 km rustig, 2 × 6 km @ ${P.m} met 2 km rustig ertussen, rest rustig.`, [[8, E], [6, P.m], [2, E], [6, P.m], [null, E]]],
+  10: [32, '32 km, laatste 5 km @ M-tempo', `27 km @ ${P.easy}, dan 5 km @ ${P.m}.`, [[27, E], [5, P.m]]],
+  9: [30, '30 km met 14 km @ M-tempo', `8 km rustig, 14 km @ ${P.m}, 8 km uitlopen.`, [[8, E], [14, P.m], [null, E]]],
   8: [22, '22 km rustig', 'Herstelweek.'],
-  7: [34, '34 km, laatste 8 km progressief naar M-tempo', `26 km @ ${P.easy}, dan 8 km steeds sneller tot ${P.m}.`],
-  6: [32, '32 km met 16 km @ M-tempo', `8 km rustig, 16 km @ ${P.m}, 8 km uitlopen.`],
-  5: [33, '33 km met 18 km @ M-tempo', `6 km rustig, 18 km @ ${P.m}, rest uitlopen. Generale repetitie voor voeding en schoenen.`],
+  7: [34, '34 km, laatste 8 km progressief naar M-tempo', `26 km @ ${P.easy}, dan 8 km steeds sneller tot ${P.m}.`, [[26, E], [2, '4:40–4:50/km'], [2, '4:25–4:35/km'], [2, '4:15–4:25/km'], [2, P.m]]],
+  6: [32, '32 km met 16 km @ M-tempo', `8 km rustig, 16 km @ ${P.m}, 8 km uitlopen.`, [[8, E], [16, P.m], [null, E]]],
+  5: [33, '33 km met 18 km @ M-tempo', `6 km rustig, 18 km @ ${P.m}, rest uitlopen. Generale repetitie voor voeding en schoenen.`, [[6, E], [18, P.m], [null, E]]],
   4: [24, '24 km rustig', 'Herstelweek.'],
-  3: [32, '32 km met 2 × 8 km @ M-tempo', `6 km rustig, 2 × 8 km @ ${P.m} met 2 km rustig ertussen, rest uitlopen. Laatste grote training.`],
-  2: [24, '24 km met 8 km @ M-tempo', `10 km rustig, 8 km @ ${P.m}, 6 km uitlopen.`],
-  1: [16, '16 km met 5 km @ M-tempo', `8 km rustig, 5 km @ ${P.m}, 3 km uitlopen.`]
+  3: [32, '32 km met 2 × 8 km @ M-tempo', `6 km rustig, 2 × 8 km @ ${P.m} met 2 km rustig ertussen, rest uitlopen. Laatste grote training.`, [[6, E], [8, P.m], [2, E], [8, P.m], [null, E]]],
+  2: [24, '24 km met 8 km @ M-tempo', `10 km rustig, 8 km @ ${P.m}, 6 km uitlopen.`, [[10, E], [8, P.m], [null, E]]],
+  1: [16, '16 km met 5 km @ M-tempo', `8 km rustig, 5 km @ ${P.m}, 3 km uitlopen.`, [[8, E], [5, P.m], [null, E]]]
 };
 function longRun(c) {
-  let km, desc, how;
-  if (c.phase === 'marathon' || c.phase === 'taper') [km, desc, how] = MARATHON_LR[c.wtr];
+  let km, desc, how, segs;
+  if (c.phase === 'marathon' || c.phase === 'taper') [km, desc, how, segs] = MARATHON_LR[c.wtr];
   else if (c.phase === 'basis') {
     // Start op 16 km: in sep 2026 ~50 km/week (langste 19,6), in okt teruggevallen naar ~25 en knie onrustig
     const b = Math.min(16 + 2 * c.cycle, 24);
-    [km, desc, how] = [
+    [km, desc, how, segs] = [
       [b, `${b} km rustig`, `Alles @ ${P.easy}.`],
-      [b + 2, `${b + 2} km, laatste 4 km @ M-tempo`, `${b - 2} km @ ${P.easy}, dan 4 km @ ${P.m}.`],
-      [Math.min(b + 3, 26), `${Math.min(b + 3, 26)} km met 2 × 5 km @ M-tempo`, `6 km rustig, 5 km @ ${P.m}, 1 km rustig, 5 km @ ${P.m}, rest uitlopen.`],
+      [b + 2, `${b + 2} km, laatste 4 km @ M-tempo`, `${b - 2} km @ ${P.easy}, dan 4 km @ ${P.m}.`, [[b - 2, E], [4, P.m]]],
+      [Math.min(b + 3, 26), `${Math.min(b + 3, 26)} km met 2 × 5 km @ M-tempo`, `6 km rustig, 5 km @ ${P.m}, 1 km rustig, 5 km @ ${P.m}, rest uitlopen.`, [[6, E], [5, P.m], [1, E], [5, P.m], [null, E]]],
       [b - 4, `${b - 4} km rustig`, `Alles @ ${P.easy}. Herstelweek.`]
     ][c.bw - 1];
   } else if (c.phase === 'drempel') {
-    [km, desc, how] = [
-      [22, '22 km met 3 × 3 km @ HM-tempo', `8 km rustig, 3 × 3 km @ ${P.hm} met 1 km rustig ertussen, rest uitlopen.`],
-      [24, '24 km, laatste 5 km @ HM-tempo', `19 km @ ${P.easy}, dan 5 km @ ${P.hm}.`],
-      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`],
+    [km, desc, how, segs] = [
+      [22, '22 km met 3 × 3 km @ HM-tempo', `8 km rustig, 3 × 3 km @ ${P.hm} met 1 km rustig ertussen, rest uitlopen.`, [[8, E], [3, P.hm], [1, E], [3, P.hm], [1, E], [3, P.hm], [null, E]]],
+      [24, '24 km, laatste 5 km @ HM-tempo', `19 km @ ${P.easy}, dan 5 km @ ${P.hm}.`, [[19, E], [5, P.hm]]],
+      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`, [[6, E], [5, P.m], [1, E], [5, P.m], [null, E]]],
       [16, '16 km rustig', 'Herstelweek.']
     ][c.bw - 1];
   } else if (c.phase === 'snelheid') {
-    [km, desc, how] = [
+    [km, desc, how, segs] = [
       [22, '22 km rustig', `Alles @ ${P.easy}.`],
-      [24, '24 km, laatste 3 km progressief', `21 km @ ${P.easy}, dan 3 km steeds sneller tot ${P.hm}.`],
-      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`],
+      [24, '24 km, laatste 3 km progressief', `21 km @ ${P.easy}, dan 3 km steeds sneller tot ${P.hm}.`, [[21, E], [1, '4:25–4:35/km'], [1, P.m], [1, P.hm]]],
+      [24, '24 km met 2 × 5 km @ M-tempo', `6 km rustig, 2 × 5 km @ ${P.m} met 1 km rustig ertussen, rest uitlopen.`, [[6, E], [5, P.m], [1, E], [5, P.m], [null, E]]],
       [16, '16 km rustig', 'Herstelweek.']
     ][c.bw - 1];
   } else if (c.phase === 'herstel') return easyRun('za-lr', 'Rustige loop', 40, { optional: true, pace: P.rec });
   else return null;
   return {
-    id: 'za-lr', sport: 'run', title: `Lange duurloop · ${km} km`, km, dur: runDur(km), summary: desc,
+    id: 'za-lr', sport: 'run', title: `Lange duurloop · ${km} km`, km, dur: runDur(km), summary: desc, blokken: segs ? langBlokken(km, segs) : null,
     details: [how,
       c.phase === 'marathon' || c.phase === 'taper' ? 'Oefen je racevoeding: 60–90 g koolhydraten per uur, elke 25–30 min een gel.' : 'Duurt het langer dan 90 min? Neem gels of sportdrank mee (30–60 g koolhydraten per uur).',
       'Kies een vlak parcours voor de stukken op tempo.']
@@ -855,6 +902,7 @@ function swapSport(s) {
     const vo2 = /^Interval/.test(s.title);
     const [set, lo, hi, rest] = vo2 ? ['5 × 4 min', 106, 115, '4 min Z1'] : ['2 × 15 min', 95, 100, '5 min Z1'];
     return { id: s.id, sport: 'bike', title: `Fiets-${vo2 ? 'intervallen' : 'drempel'} · ${set} (i.p.v. lopen)`, dur: 70, km: rideKm(70),
+      blokken: fietsBlokken(set, lo, hi, vo2 ? 4 : 5, 70),
       summary: `70 min · ${set} @ ${watt(lo, hi)}, ${rest}`,
       details: [`Vervangt: ${s.title}.`, '15 min inrijden in Z2 + 3 × 1 min snel.', `${set} @ ${watt(lo, hi)}, ${rest} ertussen.`, 'Rest uitrijden in Z1–Z2. Trainer of een stuk zonder stoplichten.'], ...tag };
   }
@@ -921,14 +969,16 @@ function plan(c) {
   const thuInfo = thuHome ? `${thuMin} min (~${thuKm} km)` : `${COMMUTE_KM} km`;
   const thuHomeNote = thuHome ? ['Thuiswerkdag: losse rit vanaf huis (of op de trainer), voor of na het werk. Zonder woon-werkrit in de benen rij je deze frisser dan normaal.'] : [];
   w[3].push(ftpTest
-    ? { id: 'do-terug', sport: 'bike', title: thuPre + 'FTP-test 20 min', km: thuKm, dur: thuMin, summary: `${thuInfo} · 20 min zo hard als je gelijkmatig volhoudt`,
+    ? { id: 'do-terug', sport: 'bike', title: thuPre + 'FTP-test 20 min', km: thuKm, dur: thuMin,
+        blokken: [stap('warm', 900, doelWatt(60, 75)), { herhaal: 3, stappen: [stap('werk', 60), stap('rust', 60, doelWatt(40, 55))] },
+          stap('rust', 300, doelWatt(60, 75)), stap('werk', 1200), stap('koel', Math.max(300, thuMin * 60 - 900 - 360 - 300 - 1200), doelWatt(55, 70))], summary: `${thuInfo} · 20 min zo hard als je gelijkmatig volhoudt`,
         details: [...thuHomeNote, 'Waarom: zonder test in het afgelopen jaar ligt je FTP ergens tussen ~276 W (ondergrens uit je beste 20 min in gewone ritten) en 310 W. Je sweet spot van 22 okt wijst op ~285–300 W. Een test maakt al je zones betrouwbaar.',
           '15 min inrijden in Z2, daarna 3 × 1 min snel (100+ rpm) met 1 min rustig, dan 5 min Z2.',
           '20 min all-out maar gelijkmatig: begin rond 290 W en voer pas na 10 min op als het kan. Kies het langste stuk zonder stoplichten.',
           'Rest van de rit rustig uitrijden.',
           'Vul bij "Gem./NP" het gemiddelde vermogen van die 20 min in (staat in Garmin als ronde of als "max. gemiddeld vermogen 20 min"). Je FTP is ≈ 95% daarvan: pas hem aan onder ⚙ Instellingen.'] }
     : sweet
-    ? { id: 'do-terug', sport: 'bike', title: `${thuPre}sweet spot ${ss[0]}`, km: thuKm, dur: thuMin, summary: `${thuInfo} · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
+    ? { id: 'do-terug', sport: 'bike', title: `${thuPre}sweet spot ${ss[0]}`, km: thuKm, dur: thuMin, blokken: fietsBlokken(ss[0], 88, 94, 5, thuMin), summary: `${thuInfo} · ${ss[0]} @ 88–94% FTP${watts(88, 94)}`,
         details: [...thuHomeNote, '15 min inrijden in Z2.', `${ss[0]} @ 88–94% FTP${watts(88, 94)}, met 5 min Z1 tussen de blokken.`, 'Cadans 85–95. Kies een stuk zonder stoplichten.', thuHome ? '10–15 min uitrijden in Z1–Z2.' : 'Rest van de rit in Z1–Z2.'] }
     : thuHome
     ? homeRide('do-terug', 'Thuiswerkdag · duurrit', 60, phase === 'race' || phase === 'taper', [mar ? 'Marathonblok: geen sweet spot meer, de benen zijn voor het lopen.' : 'Deze week geen blok. Alles in Z2.', ...thuNote])
@@ -966,9 +1016,16 @@ function plan(c) {
   return w;
 }
 
+// Losse, eenmalig toegevoegde trainingen (op datum)
+const EXTRA_RUNS = { '2026-11-29': { id: 'extra-run', title: 'Rustige duurloop · 14 km', dur: 70 } };
+
 // Weekschema inclusief zelf gewisselde sport en verplaatste sessies (binnen dezelfde week)
 function weekPlan(mon) {
   const w = plan(context(mon));
+  for (let i = 0; i < 7; i++) {
+    const x = EXTRA_RUNS[ymd(addDays(mon, i))];
+    if (x) w[i].unshift(easyRun(x.id, x.title, x.dur));
+  }
   for (let i = 0; i < 7; i++) {
     const orig = ymd(addDays(mon, i));
     w[i] = w[i].map(s => { const sw = swaps[orig + '|' + s.id]; return sw && sw.sport && sw.sport !== s.sport && canSwap(s) ? swapSport(s) : s });
@@ -1017,7 +1074,7 @@ function applySick(day, date) {
         return easyRun(s.id, (s.id === 'za-lr' ? 'Rustige duurloop' : 'Rustige loop') + ' (na ziekte)', dur,
           { extra: [`Terugkeerdag ${n} na ziekte: ${s.title.toLowerCase()} vervalt. Niet inhalen, het blok loopt gewoon door.`, 'Voelt het zwaar of komt de keelpijn terug? Stop en neem nog een dag rust.', SICK_RULE] });
       }
-      if (s.sport === 'bike') return { ...s, title: s.title.replace(/sweet spot.*|FTP-test.*|VO2.*|drempel.*/i, '') + 'rustig (na ziekte)', summary: `${s.km} km · Z1–Z2 55–70% FTP${watts(55, 70)}`,
+      if (s.sport === 'bike') return { ...s, blokken: null, title: s.title.replace(/sweet spot.*|FTP-test.*|VO2.*|drempel.*/i, '') + 'rustig (na ziekte)', summary: `${s.km} km · Z1–Z2 55–70% FTP${watts(55, 70)}`,
         details: [`Terugkeerdag ${n} na ziekte: geen blokken, alles in Z1–Z2.`, 'Wind tegen of je voelt je slap? Dan liever met de auto of de trein.', SICK_RULE] };
     }
     if (n <= 2 && s.sport === 'strength') return { ...s, title: s.title + ' (licht)', summary: s.summary.replace(/^\d rondes/, '2 rondes').replace(/plyometrie \+ /, ''), details: [`Terugkeerdag ${n} na ziekte: 2 rondes in plaats van 3, geen plyometrie, nergens tot falen. Voel je je slap? Overslaan.`, ...s.details] };
